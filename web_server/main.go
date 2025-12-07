@@ -1,21 +1,57 @@
 package main
 
 import (
-  "fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"web_server/api"
+	"web_server/config"
+	"web_server/db"
+	"web_server/db/migrate"
+	"web_server/docs"
+	"web_server/internal/store"
+	"web_server/pkg/logger"
+
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-//TIP <p>To run your code, right-click the code and select <b>Run</b>.</p> <p>Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.</p>
+// @title 高校社团信息管理系统 API
+// @version 1.0
+// @description 基于 Vue3+UniApp+Gin+Gorm 的社团管理系统后端接口
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @BasePath /api/v1
 
 func main() {
-  //TIP <p>Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined text
-  // to see how GoLand suggests fixing the warning.</p><p>Alternatively, if available, click the lightbulb to view possible fixes.</p>
-  s := "gopher"
-  fmt.Printf("Hello and welcome, %s!\n", s)
+	cfg := config.Default()
+	docs.SwaggerInfo.Title = "高校社团信息管理系统 API"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.BasePath = "/api/v1"
+	d, err := db.Open(cfg.DB)
+	if err != nil {
+		logger.Error("db open error:", err)
+		log.Fatal(err)
+	}
+	store.SetDB(d)
+	if err := migrate.AutoMigrate(d); err != nil {
+		logger.Error("auto migrate error:", err)
+		log.Fatal(err)
+	}
+	_ = migrate.Seed(d)
 
-  for i := 1; i <= 5; i++ {
-	//TIP <p>To start your debugging session, right-click your code in the editor and select the Debug option.</p> <p>We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>.</p>
-	fmt.Println("i =", 100/i)
-  }
+	r := gin.Default()
+	pubPath := filepath.Join(cfg.Server.PublicDir)
+	upPath := filepath.Join(pubPath, cfg.Server.UploadDir)
+	_ = os.MkdirAll(upPath, 0755)
+	r.Static("/static", pubPath)
+	api.Register(r)
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	if err := r.Run(cfg.Server.Addr); err != nil {
+		logger.Error("server run error:", err)
+		log.Fatal(err)
+	}
 }

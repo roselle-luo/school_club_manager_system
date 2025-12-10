@@ -22,6 +22,7 @@ type Attendance struct {
 	BaseModel
 	UserID     uint   `gorm:"index" json:"user_id"`
 	ActivityID uint   `gorm:"index" json:"activity_id"`
+	ClubID     uint   `gorm:"index" json:"club_id"`
 	Type       string `gorm:"size:16" json:"type"`
 }
 

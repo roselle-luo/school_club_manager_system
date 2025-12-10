@@ -14,3 +14,11 @@ func IsClubLeader(userID uint, clubID uint) bool {
 	}
 	return true
 }
+
+func IsClubMember(userID uint, clubID uint) bool {
+	var m models.Membership
+	if err := store.DB().Where("user_id = ? AND club_id = ?", userID, clubID).First(&m).Error; err != nil {
+		return false
+	}
+	return true
+}

@@ -77,6 +77,58 @@ paths:
       summary: 健康检查
       tags:
       - 公共
+  /leader/attendance/{id}:
+    delete:
+      parameters:
+      - description: 考勤记录ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 删除异常考勤记录（负责人）
+      tags:
+      - 考勤
+  /leader/clubs/{clubId}/attendance:
+    get:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      - description: 用户ID
+        in: query
+        name: userId
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 社团考勤检索（负责人）
+      tags:
+      - 考勤
   /leader/clubs/{clubId}/members/{userId}/role:
     post:
       consumes:
@@ -110,6 +162,128 @@ paths:
       summary: 负责人设定成员社团内角色
       tags:
       - 负责人
+  /leader/clubs/{clubId}/members/users:
+    get:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      - description: '角色: member/leader/advisor'
+        in: query
+        name: role
+        type: string
+      - description: '状态: pending/approved/rejected/quit'
+        in: query
+        name: status
+        type: string
+      - description: 关键词：姓名/学号/手机号
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 社团成员列表（负责人）
+      tags:
+      - 成员
+  /leader/clubs/{clubId}/memberships:
+    get:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 待审批入会列表（负责人）
+      tags:
+      - 成员
+  /leader/clubs/{clubId}/memberships/{id}/approve:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      - description: 成员关系ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 审批通过成员（负责人）
+      tags:
+      - 成员
+  /leader/clubs/{clubId}/memberships/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      - description: 成员关系ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 审批驳回成员（负责人）
+      tags:
+      - 成员
   /leader/clubs/{clubId}/users:
     get:
       parameters:
@@ -117,6 +291,14 @@ paths:
         in: path
         name: clubId
         required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
         type: integer
       produces:
       - application/json
@@ -138,6 +320,14 @@ paths:
         name: userId
         required: true
         type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
       produces:
       - application/json
       responses:
@@ -150,6 +340,191 @@ paths:
       summary: 获取用户负责的社团列表
       tags:
       - 负责人
+  /member/activities/{activityId}/signin:
+    post:
+      parameters:
+      - description: 活动ID
+        in: path
+        name: activityId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 会员签到
+      tags:
+      - 考勤
+  /member/activities/{activityId}/signout:
+    post:
+      parameters:
+      - description: 活动ID
+        in: path
+        name: activityId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 会员签退
+      tags:
+      - 考勤
+  /member/attendance/my:
+    get:
+      parameters:
+      - description: 社团ID
+        in: query
+        name: clubId
+        required: true
+        type: integer
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 我的考勤记录（按社团）
+      tags:
+      - 考勤
+  /public/activities:
+    get:
+      parameters:
+      - description: 社团ID
+        in: query
+        name: clubId
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 开始时间
+        in: query
+        name: start
+        type: string
+      - description: 结束时间
+        in: query
+        name: end
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 活动列表（公开）
+      tags:
+      - 公共
+  /public/announcements:
+    get:
+      parameters:
+      - description: 社团ID
+        in: query
+        name: clubId
+        type: integer
+      - description: 关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 公告列表（公开）
+      tags:
+      - 公共
+  /public/categories:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 社团类别列表（公开）
+      tags:
+      - 公共
+  /public/clubs:
+    get:
+      parameters:
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 社团列表（含类别、代表活动、负责人联系方式）
+      tags:
+      - 公共
+  /public/clubs/{clubId}:
+    get:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 社团详情（公开）
+      tags:
+      - 公共
   /public/login:
     post:
       consumes:
@@ -171,6 +546,73 @@ paths:
       summary: 登录
       tags:
       - 公共
+  /student/clubs/{clubId}/apply:
+    post:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 申请加入社团
+      tags:
+      - 学生
+  /student/clubs/{clubId}/exit:
+    post:
+      parameters:
+      - description: 社团ID
+        in: path
+        name: clubId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 退出社团
+      tags:
+      - 学生
+  /student/memberships/my:
+    get:
+      parameters:
+      - description: '状态: pending/approved/rejected/quit'
+        in: query
+        name: status
+        type: string
+      - description: 页码
+        in: query
+        name: page
+        type: integer
+      - description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      security:
+      - Bearer: []
+      summary: 我的社团关系
+      tags:
+      - 学生
   /upload/image:
     post:
       consumes:

@@ -6,6 +6,7 @@ import (
 	"web_server/db/models"
 	"web_server/internal/authz"
 	"web_server/internal/store"
+	"web_server/pkg/pagination"
 	"web_server/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,8 @@ import (
 // @Tags 负责人
 // @Produce json
 // @Param clubId path int true "社团ID"
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量"
 // @Security Bearer
 // @Success 200 {object} response.Body
 // @Router /leader/clubs/{clubId}/users [get]
@@ -32,7 +35,10 @@ func GetClubLeaders(c *gin.Context) {
 		return
 	}
 	var items []models.Membership
-	if err := store.DB().Where("club_id = ? AND role IN ?", clubID, []string{"leader", "advisor"}).Preload("User").Find(&items).Error; err != nil {
+	q := store.DB().Model(&models.Membership{}).Where("club_id = ? AND role IN ?", clubID, []string{"leader", "advisor"}).Preload("User").Order("id DESC")
+	pg := pagination.Get(c)
+	info, err := pagination.Do(q, pg, &items)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
 		return
 	}
@@ -40,13 +46,15 @@ func GetClubLeaders(c *gin.Context) {
 	for _, m := range items {
 		users = append(users, m.User)
 	}
-	c.JSON(http.StatusOK, response.Success(users))
+	c.JSON(http.StatusOK, response.Success(map[string]any{"list": users, "pagination": info}))
 }
 
 // @Summary 获取用户负责的社团列表
 // @Tags 负责人
 // @Produce json
 // @Param userId path int true "用户ID"
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量"
 // @Security Bearer
 // @Success 200 {object} response.Body
 // @Router /leader/users/{userId}/clubs [get]
@@ -64,7 +72,10 @@ func GetUserLeaderClubs(c *gin.Context) {
 		return
 	}
 	var items []models.Membership
-	if err := store.DB().Where("user_id = ? AND role IN ?", userID, []string{"leader", "advisor"}).Preload("Club").Find(&items).Error; err != nil {
+	q := store.DB().Model(&models.Membership{}).Where("user_id = ? AND role IN ?", userID, []string{"leader", "advisor"}).Preload("Club").Order("id DESC")
+	pg := pagination.Get(c)
+	info, err := pagination.Do(q, pg, &items)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
 		return
 	}
@@ -72,7 +83,7 @@ func GetUserLeaderClubs(c *gin.Context) {
 	for _, m := range items {
 		clubs = append(clubs, m.Club)
 	}
-	c.JSON(http.StatusOK, response.Success(clubs))
+	c.JSON(http.StatusOK, response.Success(map[string]any{"list": clubs, "pagination": info}))
 }
 
 type setRoleReq struct {

@@ -1,17 +1,84 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
-			}
-		}
-	],
-	"globalStyle": {
-		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
-	},
-	"uniIdRouter": {}
+    "pages": [
+        {
+            "path": "pages/login/form",
+            "style": {
+                "navigationBarTitleText": "登录"
+            }
+        },
+        {
+            "path": "pages/register/form",
+            "style": {
+                "navigationBarTitleText": "注册"
+            }
+        },
+        {
+            "path": "pages/clubs/list",
+            "style": {
+                "navigationBarTitleText": "社团列表"
+            }
+        },
+        {
+            "path": "pages/clubs/detail",
+            "style": {
+                "navigationBarTitleText": "社团详情"
+            }
+        },
+        {
+            "path": "pages/activities/list",
+            "style": {
+                "navigationBarTitleText": "活动"
+            }
+        },
+        {
+            "path": "pages/announcements/list",
+            "style": {
+                "navigationBarTitleText": "公告"
+            }
+        },
+        {
+            "path": "pages/mine/memberships",
+            "style": {
+                "navigationBarTitleText": "我的"
+            }
+        }
+    ],
+    "globalStyle": {
+        "navigationBarTextStyle": "black",
+        "navigationBarTitleText": "社团管理",
+        "navigationBarBackgroundColor": "#F8F8F8",
+        "backgroundColor": "#F8F8F8"
+    },
+    "tabBar": {
+        "color": "#333",
+        "selectedColor": "#007AFF",
+        "backgroundColor": "#FFFFFF",
+        "list": [
+            {
+                "pagePath": "pages/clubs/list",
+                "text": "社团",
+                "iconPath": "static/logo.png",
+                "selectedIconPath": "static/logo.png"
+            },
+            {
+                "pagePath": "pages/activities/list",
+                "text": "活动",
+                "iconPath": "static/logo.png",
+                "selectedIconPath": "static/logo.png"
+            },
+            {
+                "pagePath": "pages/announcements/list",
+                "text": "公告",
+                "iconPath": "static/logo.png",
+                "selectedIconPath": "static/logo.png"
+            },
+            {
+                "pagePath": "pages/mine/memberships",
+                "text": "我的",
+                "iconPath": "static/logo.png",
+                "selectedIconPath": "static/logo.png"
+            }
+        ]
+    },
+    "uniIdRouter": {}
 }

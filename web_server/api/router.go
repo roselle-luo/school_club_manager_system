@@ -14,6 +14,7 @@ func Register(r *gin.Engine) {
 
 	pub := v1.Group("/public")
 	pub.POST("/login", controllers.Login)
+	pub.POST("/register", controllers.Register)
 	pub.GET("/clubs", controllers.ListClubs)
 	pub.GET("/clubs/:clubId", controllers.GetClubDetailPublic)
 	pub.GET("/announcements", controllers.ListPublicAnnouncements)

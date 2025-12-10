@@ -9,6 +9,22 @@ definitions:
     - account
     - password
     type: object
+  controllers.RegisterReq:
+    properties:
+      account:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      student_no:
+        type: string
+    required:
+    - account
+    - password
+    type: object
   controllers.UpdateRoleReq:
     properties:
       role:
@@ -544,6 +560,27 @@ paths:
           schema:
             $ref: '#/definitions/response.Body'
       summary: 登录
+      tags:
+      - 公共
+  /public/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 注册参数
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.RegisterReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/response.Body'
+      summary: 注册
       tags:
       - 公共
   /student/clubs/{clubId}/apply:

@@ -25,9 +25,21 @@
             }
         },
         {
+            "path": "pages/clubs/home",
+            "style": {
+                "navigationBarTitleText": "社团主页"
+            }
+        },
+        {
             "path": "pages/activities/list",
             "style": {
-                "navigationBarTitleText": "活动"
+                "navigationBarTitleText": "我的社团"
+            }
+        },
+        {
+            "path": "pages/activities/detail",
+            "style": {
+                "navigationBarTitleText": "活动详情"
             }
         },
         {
@@ -37,9 +49,33 @@
             }
         },
         {
+            "path": "pages/clubs/attendance",
+            "style": {
+                "navigationBarTitleText": "打卡记录"
+            }
+        },
+        {
+            "path": "pages/clubs/achievements",
+            "style": {
+                "navigationBarTitleText": "成果展示"
+            }
+        },
+        {
+            "path": "pages/clubs/members",
+            "style": {
+                "navigationBarTitleText": "成员列表"
+            }
+        },
+        {
             "path": "pages/mine/memberships",
             "style": {
                 "navigationBarTitleText": "我的"
+            }
+        },
+        {
+            "path": "pages/mine/edit",
+            "style": {
+                "navigationBarTitleText": "编辑资料"
             }
         }
     ],
@@ -57,26 +93,26 @@
             {
                 "pagePath": "pages/clubs/list",
                 "text": "社团",
-                "iconPath": "static/logo.png",
-                "selectedIconPath": "static/logo.png"
+                "iconPath": "static/home.png",
+                "selectedIconPath": "static/home_selected.png"
             },
             {
                 "pagePath": "pages/activities/list",
-                "text": "活动",
-                "iconPath": "static/logo.png",
-                "selectedIconPath": "static/logo.png"
+                "text": "我的社团",
+                "iconPath": "static/club.png",
+                "selectedIconPath": "static/club_selected.png"
             },
             {
                 "pagePath": "pages/announcements/list",
                 "text": "公告",
-                "iconPath": "static/logo.png",
-                "selectedIconPath": "static/logo.png"
+                "iconPath": "static/announcement.png",
+                "selectedIconPath": "static/announcement_selected.png"
             },
             {
                 "pagePath": "pages/mine/memberships",
                 "text": "我的",
-                "iconPath": "static/logo.png",
-                "selectedIconPath": "static/logo.png"
+                "iconPath": "static/profile.png",
+                "selectedIconPath": "static/profile_selected.png"
             }
         ]
     },

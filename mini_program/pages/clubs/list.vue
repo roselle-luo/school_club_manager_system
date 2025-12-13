@@ -10,16 +10,16 @@
       </scroll-view>
     </view>
     <view class="grid">
-      <view v-for="item in list" :key="item.id" class="card">
+      <view v-for="item in list" :key="item.id" class="card" @tap="goDetail(item.id)">
         <image :src="item.logo" mode="aspectFill" class="logo" />
         <view class="info">
           <text class="name">{{ item.name }}</text>
           <text class="intro">{{ item.intro }}</text>
           <view class="meta">
             <text class="count">{{ (item.activities||[]).length }}个活动</text>
-            <button class="act" v-if="btnState(item.id)==='join'" @tap="join(item.id)">加入</button>
-            <button class="act danger" v-else-if="btnState(item.id)==='exit'" @tap="exitClub(item.id)">退出</button>
-            <button class="act disabled" v-else>审批中</button>
+            <button class="act" v-if="btnState(item.id)==='join'" @tap.stop="join(item.id)">加入</button>
+            <button class="act danger" v-else-if="btnState(item.id)==='exit'" @tap.stop="exitClub(item.id)">退出</button>
+            <button class="act disabled" v-else @tap.stop>审批中</button>
           </view>
         </view>
       </view>
@@ -31,6 +31,7 @@
 
 <script>
 import { request } from '../../utils/request.js'
+import { go } from '../../utils/router.js'
 export default {
   data() {
     return { list: [], page: 1, pageSize: 10, total: 0, keyword: '', chipKeyword: '', selectedChipKey: 'cat-0', categories: [], categoryId: 0, loading: false, hasMore: true, chipList: [ {id:0,key:'cat-0',name:'全部', mock:false} ], memberships: {} }
@@ -84,7 +85,7 @@ export default {
     },
     loadMore() { if (this.loading || !this.hasMore) return; this.page++; this.fetch(true) },
     resetAndFetch() { this.page = 1; this.hasMore = true; this.list = []; this.fetch(false) },
-    goDetail(id) { uni.navigateTo({ url: `/pages/clubs/detail?id=${id}` }) },
+    goDetail(id) { go('clubsDetail', { id }) },
     doSearch() { this.chipKeyword = ''; this.resetAndFetch() },
     onCatChange(e) { const idx = Number(e.detail.value||0); const item = this.categories[idx]; this.categoryId = item ? item.id : 0; this.resetAndFetch() },
     setCat(c) {

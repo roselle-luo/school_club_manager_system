@@ -1,73 +1,108 @@
 <template>
-  <view class="container">
-    <view class="header"><text class="htitle">社团</text></view>
-    <input class="search" placeholder="搜索社团名称或简介……" v-model="keyword" />
-    <view class="tabs">
-      <button :class="['tab', activeStatus===''?'on':'']" @tap="setStatus('')">全部</button>
-      <button :class="['tab', activeStatus==='pending'?'on':'']" @tap="setStatus('pending')">审批中</button>
-      <button :class="['tab', activeStatus==='approved'?'on':'']" @tap="setStatus('approved')">已通过</button>
-      <button :class="['tab', activeStatus==='rejected'?'on':'']" @tap="setStatus('rejected')">已拒绝</button>
-      <button :class="['tab', activeStatus==='quit'?'on':'']" @tap="setStatus('quit')">已退出</button>
+  <view class="page">
+    <view class="header"><text class="htitle">我的</text></view>
+    <view class="hero">
+      <image :src="avatarUrl || defaultAvatar" class="avatar" mode="aspectFill" />
+      <text class="uname">{{ profile.name || profile.account || '未登录' }}</text>
+      <view class="stats">
+        <view class="stat">
+          <text class="num">{{ profile.club_count||0 }}</text>
+          <text class="label">社团</text>
+        </view>
+        <view class="stat">
+          <text class="num">{{ profile.activity_count||0 }}</text>
+          <text class="label">活动</text>
+        </view>
+      </view>
     </view>
-    <view class="row" v-for="m in filteredList" :key="m.id">
-      <text class="title">{{ m.club.name }}</text>
-      <text class="meta">{{ m.role }} · {{ m.status }}</text>
+    <view class="panel">
+      <view class="ptitle">基本信息</view>
+      <view class="item">
+        <text class="key">姓名</text><text class="val">{{ profile.name || '未设置' }}</text>
+      </view>
+      <view class="item">
+        <text class="key">邮箱</text><text class="val">{{ profile.email || '未设置' }}</text>
+      </view>
+      <view class="item">
+        <text class="key">手机号</text><text class="val">{{ profile.phone || '未设置' }}</text>
+      </view>
+      <view class="item">
+        <text class="key">性别</text><text class="val">{{ genderText(profile.gender) }}</text>
+      </view>
+      <view class="item">
+        <text class="key">学院</text><text class="val">{{ profile.college || '未设置' }}</text>
+      </view>
     </view>
-    <view class="pager">
-      <button size="mini" @tap="prev" :disabled="page<=1">上一页</button>
-      <text class="pg">{{ page }}/{{ totalPages }}</text>
-      <button size="mini" @tap="next" :disabled="page>=totalPages">下一页</button>
-    </view>
-    <view v-if="!loading && list.length===0" class="empty">暂无记录</view>
-    <view class="login">
-      <button size="mini" @tap="goLogin">登录</button>
-      <button size="mini" @tap="goClubs">去申请加入社团</button>
+    <view class="btnrow">
+      <button class="edit" @tap="editProfile">修改个人信息</button>
+      <button class="logout" @tap="logout">退出登录</button>
     </view>
   </view>
 </template>
 
 <script>
-import { request } from '../../utils/request.js'
+import { request, clearToken } from '../../utils/request.js'
+import { go, relaunchTo } from '../../utils/router.js'
 export default {
-  data() { return { list: [], page: 1, pageSize: 10, total: 0, activeStatus: '', loading: false, keyword: '' } },
-  computed: { 
-    totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)) },
-    filteredList() { const kw=(this.keyword||'').trim(); if(!kw) return this.list; return this.list.filter(it=> (it.club?.name||'').includes(kw) || (it.club?.intro||'').includes(kw)) }
-  },
-  onShow() { this.fetch() },
+  data() { return { profile: {}, navLock: false, avatarUrl: '', defaultAvatar: 'https://static-aliyun.oss-cn-hangzhou.aliyuncs.com/placeholder/avatar.png' } },
+  onShow() { this.fetch(); this.loadAvatar() },
   methods: {
     async fetch() {
-      this.loading = true
-      try {
-        const data = await request({ url: `/student/memberships/my`, method: 'GET', data: { page: this.page, pageSize: this.pageSize, status: this.activeStatus } })
-        this.list = data.list || []
-        const p = data.pagination || { total: 0 }
-        this.total = p.total || 0
-      } catch(e) { this.list = []; this.total = 0 }
-      this.loading = false
+      try { this.profile = await request({ url: '/student/me', method: 'GET' }) || {} } catch(e) { this.profile = {} }
     },
-    prev() { if (this.page>1) { this.page--; this.fetch() } },
-    next() { if (this.page<this.totalPages) { this.page++; this.fetch() } },
-    setStatus(st) { this.activeStatus = st; this.page = 1; this.fetch() },
-    goLogin() { uni.navigateTo({ url: '/pages/login/form' }) },
-    goClubs() { uni.switchTab({ url: '/pages/clubs/list' }) }
+    loadAvatar() {
+      const local = uni.getStorageSync('AVATAR') || ''
+      const fromProfile = this.profile && this.profile.avatar ? this.profile.avatar : ''
+      const relOrAbs = fromProfile || local
+      if (!relOrAbs) { this.avatarUrl = '' ; return }
+      this.avatarUrl = this.fullAvatar(relOrAbs)
+    },
+    fullAvatar(relOrAbs) {
+      if (!relOrAbs) return ''
+      if (/^https?:\/\//.test(relOrAbs)) return relOrAbs
+      const apiBase = uni.getStorageSync('BASE_URL') || 'http://localhost:9000/api/v1'
+      const origin = apiBase.replace(/\/api\/v1$/, '')
+      return origin + relOrAbs
+    },
+    genderText(g) { if(!g) return '未设置'; if (g==='male' || g==='M' || g==='男') return '男'; if (g==='female' || g==='F' || g==='女') return '女'; return '保密' },
+    editProfile() { if (this.navLock) return; this.navLock = true; go('mineEdit') ; setTimeout(()=>{ this.navLock=false }, 320) },
+    logout() {
+      uni.showModal({
+        title: '提示',
+        content: '确认退出登录？',
+        confirmText: '退出',
+        confirmColor: '#e34a4a',
+        success: (res) => {
+          if (res.confirm) {
+            clearToken()
+            uni.showToast({ title: '已退出' })
+            relaunchTo('login')
+          }
+        }
+      })
+    }
   }
 }
 </script>
 
 <style>
-.container { padding:0 12px 12px 12px }
+.page { padding:0 12px 20px 12px; background:#f5f5f5; min-height:100vh }
 .header { height: 88rpx; background: #7e78ff; display:flex; align-items:center; padding:0 12px; border-bottom-left-radius:12px; border-bottom-right-radius:12px }
 .htitle { color:#fff; font-weight:600 }
-.search { width:100%; border:1px solid #e6e6e6; border-radius:20px; padding:10px 12px; font-size:14px; background:#fafafa; margin:8px 0 }
-.tabs { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px }
-.tab { padding:6px 10px; border:1px solid #ddd; border-radius:8px; background:#fff; color:#333 }
-.on { border-color:#2e5cff; color:#2e5cff }
-.row { padding:8px; border-bottom:1px solid #f0f0f0 }
-.title { font-weight:600 }
-.meta { display:block; color:#666; margin-top:4px }
-.pager { display:flex; justify-content:center; align-items:center; gap:12px; padding:12px }
-.pg { color:#333 }
-.empty { text-align:center; color:#888; padding:12px }
-.login { display:flex; justify-content:center; padding:12px }
+.hero { margin-top:12px; background:#7e78ff; border-radius:12px; padding:18px; display:flex; flex-direction:column; align-items:center; color:#fff }
+.avatar { width:72px; height:72px; border-radius:50%; border:2px solid #fff; background:transparent }
+.uname { margin-top:10px }
+.stats { margin-top:14px; width:100%; display:flex; justify-content:space-around }
+.stat { display:flex; flex-direction:column; align-items:center }
+.num { font-size:18px; font-weight:600 }
+.label { font-size:12px; opacity:0.9 }
+.panel { margin-top:12px; background:#fff; border-radius:12px; padding:10px }
+.ptitle { font-weight:600; margin-bottom:6px }
+.item { display:flex; justify-content:space-between; align-items:center; padding:10px 6px; border-top:1px solid #f0f0f0 }
+.item:first-of-type { border-top:none }
+.key { color:#666 }
+.val { color:#333 }
+.btnrow { display:flex; gap:10px; margin-top:16px; width:100%; margin-left:0; margin-right:0 }
+.edit { flex:1; background:#7e78ff; color:#fff; border-radius:24px }
+.logout { flex:1; background:#e34a4a; color:#fff; border-radius:24px }
 </style>

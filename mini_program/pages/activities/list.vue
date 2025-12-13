@@ -1,51 +1,103 @@
 <template>
   <view class="container">
-    <view class="filters">
-      <input class="search" placeholder="搜索主题/地点" v-model="keyword" @confirm="doSearch" />
+    <view class="seg">
+      <text :class="['seg-item', status==='approved' ? 'active' : '']" @tap="switchStatus('approved')">已加入</text>
+      <text :class="['seg-item', status==='pending' ? 'active' : '']" @tap="switchStatus('pending')">申请中</text>
     </view>
-    <view v-for="a in list" :key="a.id" class="row">
-      <text class="title">{{ a.subject }}</text>
-      <text class="meta">{{ a.time }} · {{ a.place }}</text>
+    <view v-for="it in items" :key="it.clubId" class="row" @tap="onCardTap(it.clubId)">
+      <view class="info">
+        <text class="title">{{ it.clubName }}</text>
+        <text class="meta">社长：{{ it.leaderName || '未知' }}</text>
+      </view>
+      <text v-if="status==='approved'" class="enter" @tap="goClub(it.clubId)">点击进入</text>
     </view>
-    <view class="pager">
-      <button size="mini" @tap="prev" :disabled="page<=1">上一页</button>
-      <text class="pg">{{ page }}/{{ totalPages }}</text>
-      <button size="mini" @tap="next" :disabled="page>=totalPages">下一页</button>
-    </view>
-    <view v-if="!loading && list.length===0" class="empty">暂无活动</view>
+    <view v-if="!loading && items.length===0" class="empty">暂无社团</view>
   </view>
 </template>
 
 <script>
 import { request } from '../../utils/request.js'
+import { go } from '../../utils/router.js'
 export default {
-  data() { return { list: [], page: 1, pageSize: 10, total: 0, keyword: '', loading: false } },
-  computed: { totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)) } },
+  data() { 
+    return { 
+      status: 'approved',
+      items: [],
+      leadersMap: {},
+      loading: false
+    } 
+  },
   onShow() { this.fetch() },
   methods: {
+    switchStatus(s) {
+      if (this.status === s) return
+      this.status = s
+      this.fetch()
+    },
     async fetch() {
       this.loading = true
-      const data = await request({ url: `/public/activities`, method: 'GET', data: { page: this.page, pageSize: this.pageSize, keyword: this.keyword } })
-      this.list = data.list || []
-      const p = data.pagination || { total: 0 }
-      this.total = p.total || 0
+      try {
+        const data = await request({ url: '/student/memberships/my', method: 'GET', data: { page: 1, pageSize: 200, status: this.status } })
+        const list = data.list || []
+        const items = list.map(it => {
+          const club = it.club || {}
+          return {
+            clubId: it.club_id || club.id,
+            clubName: club.name || '',
+            leaderName: this.leadersMap[it.club_id || club.id] || ''
+          }
+        }).filter(it => !!it.clubId)
+        this.items = items
+        const ids = Array.from(new Set(items.map(i => i.clubId))).filter(Boolean)
+        await this.fetchLeaders(ids)
+      } catch(e) {
+        this.items = []
+      }
       this.loading = false
     },
-    prev() { if (this.page>1) { this.page--; this.fetch() } },
-    next() { if (this.page<this.totalPages) { this.page++; this.fetch() } },
-    doSearch() { this.page = 1; this.fetch() }
+    onCardTap(id) {
+      if (this.status !== 'approved') return
+      this.goClub(id)
+    },
+    goClub(id) { if (!id) return; go('clubHome', { id }) },
+    async fetchLeaders(ids) {
+      const pending = ids.filter(id => !(id in this.leadersMap))
+      if (!pending.length) return
+      try {
+        const results = await Promise.all(pending.map(id => request({ url: `/public/clubs/${id}`, method: 'GET' })))
+        results.forEach((data, idx) => {
+          const id = pending[idx]
+          const leaders = data.leaders || []
+          let leaderName = ''
+          for (let i = 0; i < leaders.length; i++) {
+            const m = leaders[i] || {}
+            if ((m.role || '').toLowerCase() === 'leader') {
+              leaderName = (m.user && m.user.name) || ''
+              break
+            }
+          }
+          if (!leaderName && leaders.length > 0) {
+            leaderName = (leaders[0].user && leaders[0].user.name) || ''
+          }
+          this.leadersMap[id] = leaderName
+        })
+        this.items = this.items.map(it => ({ ...it, leaderName: this.leadersMap[it.clubId] || it.leaderName }))
+      } catch(e) {}
+    }
   }
 }
 </script>
 
 <style>
-.container { padding:12px }
-.filters { display:flex; gap:8px; align-items:center; margin-bottom:8px }
-.search { flex:1; border:1px solid #ddd; border-radius:8px; padding:8px }
-.row { padding:8px; border-bottom:1px solid #f0f0f0 }
+.container { padding:12px; background:#f7f8fa; min-height:100vh }
+.seg { display:flex; gap:12px; align-items:center; margin-bottom:12px; background:#eef0ff; border:1px solid #e6e7fb; border-radius:8px; padding:6px }
+.seg-item { flex:1; text-align:center; padding:8px 0; border-radius:6px; color:#666 }
+.seg-item.active { background:#7e78ff; color:#fff; font-weight:600 }
+.row { padding:12px; background:#fff; border:1px solid #e4e6ff; border-radius:12px; box-shadow:0 6px 12px rgba(0,0,0,0.04); display:flex; align-items:center; justify-content:space-between; margin-bottom:12px }
+.row:last-child { margin-bottom:0 }
+.info { display:flex; flex-direction:column }
 .title { font-weight:600 }
 .meta { display:block; color:#666; margin-top:4px }
-.pager { display:flex; justify-content:center; align-items:center; gap:12px; padding:12px }
-.pg { color:#333 }
+.enter { color:#7e78ff; font-weight:700 }
 .empty { text-align:center; color:#888; padding:12px }
 </style>

@@ -2,7 +2,9 @@
   <view class="page">
     <view class="header"><text class="htitle">登录</text></view>
     <view class="card">
-      <view class="avatar"></view>
+      <view class="avatar">
+        <image src="/static/guet_logo.png" class="avatarimg" mode="aspectFill" />
+      </view>
       <view class="brand">快乐社团平台</view>
       <input class="ipt" placeholder="用户名" v-model="form.account" />
       <input class="ipt" placeholder="密码" password v-model="form.password" />
@@ -14,6 +16,7 @@
 
 <script>
 import { request, setToken } from '../../utils/request.js'
+import { switchTo, go } from '../../utils/router.js'
 export default {
   data() { return { form: { account: '', password: '' } } },
   methods: {
@@ -23,14 +26,14 @@ export default {
         if (data && data.token) {
           setToken(data.token)
           uni.showToast({ title: '登录成功' })
-          uni.switchTab({ url: '/pages/mine/memberships' })
+          switchTo('clubsList')
         } else {
           uni.showToast({ title: '登录失败', icon: 'none' })
         }
       } catch(e) { uni.showToast({ title: e.msg || '登录失败', icon: 'none' }) }
     }
     ,
-    goRegister() { uni.redirectTo({ url: '/pages/register/form' }) }
+    goRegister() { go('register', {}, { replace: true }) }
   }
 }
 </script>
@@ -40,9 +43,10 @@ export default {
 .header { height: 88rpx; background: #7e78ff; display:flex; align-items:center; padding:0 12px; border-bottom-left-radius:12px; border-bottom-right-radius:12px }
 .htitle { color:#fff; font-weight:600 }
 .card { width:92%; max-width:360px; margin:auto 0; background:#fff; border-radius:14px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,0.06); display:flex; flex-direction:column; align-items:center }
-.avatar { width:72px; height:72px; border-radius:50%; background:#7e78ff; opacity:0.9 }
+.avatar { width:72px; height:72px; border-radius:50%; overflow:hidden; background:transparent }
+.avatarimg { width:100%; height:100%; border-radius:50% }
 .brand { margin:10px 0 14px 0; color:#333; font-weight:600 }
-.ipt { width:100%; border:1px solid #e6e6e6; border-radius:12px; padding:12px 16px; font-size:14px; background:#fafafa; margin:10px 0 }
+.ipt { width:90%; border:1px solid #e6e6e6; border-radius:12px; padding:12px 16px; font-size:14px; background:#fafafa; margin:10px 0 }
 .primary { width:100%; margin-top:10px; background:#7e78ff; color:#fff; border:none; border-radius:12px; padding:3px; font-weight:600 }
 .tip { margin-top:12px; color:#666 }
 .action { color:#7e78ff }

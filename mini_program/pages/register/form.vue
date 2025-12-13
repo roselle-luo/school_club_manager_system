@@ -41,6 +41,7 @@
 
 <script>
 import { request, setToken } from '../../utils/request.js'
+import { switchTo, go } from '../../utils/router.js'
 export default {
   data() {
     return {
@@ -75,14 +76,14 @@ export default {
         if (data && data.token) {
           setToken(data.token)
           uni.showToast({ title: '注册成功' })
-          uni.switchTab({ url: '/pages/mine/memberships' })
+          switchTo('clubsList')
         } else {
           uni.showToast({ title: '注册失败', icon: 'none' })
         }
       } catch(e) { uni.showToast({ title: e.msg || '注册失败', icon: 'none' }) }
       this.loading = false
     },
-    goLogin() { uni.redirectTo({ url: '/pages/login/form' }) }
+    goLogin() { go('login', {}, { replace: true }) }
   }
 }
 </script>

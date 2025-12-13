@@ -40,7 +40,9 @@ func main() {
 		logger.Error("auto migrate error:", err)
 		log.Fatal(err)
 	}
-	_ = migrate.Seed(d)
+	if err := migrate.MigrateAttendanceActivityNullable(d); err != nil {
+		logger.Error("migrate attendance activity nullable error:", err)
+	}
 
 	r := gin.Default()
 	pubPath := filepath.Join(cfg.Server.PublicDir)

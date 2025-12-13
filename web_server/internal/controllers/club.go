@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 	"web_server/db/models"
@@ -128,7 +129,7 @@ func ApplyJoinClub(c *gin.Context) {
 func MyMemberships(c *gin.Context) {
 	cu, _ := c.Get("currentUser")
 	u := cu.(*models.User)
-	q := store.DB().Where("user_id = ?", u.ID).Preload("Club").Order("id DESC")
+	q := store.DB().Model(&models.Membership{}).Where("user_id = ?", u.ID).Preload("Club").Order("id DESC")
 	if st := c.Query("status"); st != "" {
 		q = q.Where("status = ?", st)
 	}
@@ -136,6 +137,7 @@ func MyMemberships(c *gin.Context) {
 	pg := pagination.Get(c)
 	info, err := pagination.Do(q, pg, &list)
 	if err != nil {
+		log.Printf("MyMemberships query error: user_id=%d status=%s err=%v", u.ID, c.Query("status"), err)
 		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
 		return
 	}

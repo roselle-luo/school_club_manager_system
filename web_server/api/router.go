@@ -19,6 +19,7 @@ func Register(r *gin.Engine) {
 	pub.GET("/clubs/:clubId", controllers.GetClubDetailPublic)
 	pub.GET("/announcements", controllers.ListPublicAnnouncements)
 	pub.GET("/activities", controllers.ListPublicActivities)
+	pub.GET("/activities/:activityId", controllers.GetPublicActivityDetail)
 	pub.GET("/categories", controllers.ListCategories)
 
 	auth := v1.Group("")
@@ -28,6 +29,8 @@ func Register(r *gin.Engine) {
 	student.POST("/clubs/:clubId/apply", controllers.ApplyJoinClub)
 	student.POST("/clubs/:clubId/exit", controllers.ExitClub)
 	student.GET("/memberships/my", controllers.MyMemberships)
+	student.GET("/me", controllers.MyProfile)
+	student.PUT("/me", controllers.UpdateMyProfile)
 	member := auth.Group("/member")
 	leader := auth.Group("/leader")
 	leader.GET("/clubs/:clubId/users", controllers.GetClubLeaders)
@@ -44,6 +47,11 @@ func Register(r *gin.Engine) {
 
 	member.POST("/activities/:activityId/signin", controllers.SignIn)
 	member.POST("/activities/:activityId/signout", controllers.SignOut)
+	member.POST("/activities/:activityId/register", controllers.RegisterActivity)
+	member.GET("/activities/:activityId/register", controllers.GetRegisterStatus)
+	member.DELETE("/activities/:activityId/register", controllers.CancelRegisterActivity)
+	member.POST("/clubs/:clubId/signin", controllers.ClubSignIn)
+	member.POST("/clubs/:clubId/signout", controllers.ClubSignOut)
 	member.GET("/attendance/my", controllers.MyAttendance)
 	_ = leader
 	_ = admin

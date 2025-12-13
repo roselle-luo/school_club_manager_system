@@ -100,3 +100,85 @@ func Register(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, response.Success(map[string]any{"token": token}))
 }
+
+// @Summary 我的信息
+// @Tags 学生
+// @Produce json
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /student/me [get]
+func MyProfile(c *gin.Context) {
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	var clubCount int64
+	var actCount int64
+	_ = store.DB().Model(&models.Membership{}).Where("user_id = ? AND status = ?", u.ID, "approved").Count(&clubCount).Error
+	_ = store.DB().Model(&models.Attendance{}).Where("user_id = ?", u.ID).Count(&actCount).Error
+	res := map[string]any{
+		"account":        u.Account,
+		"name":           u.Name,
+		"gender":         u.Gender,
+		"college":        u.College,
+		"student_no":     u.StudentNo,
+		"phone":          u.Phone,
+		"role":           u.Role.Code,
+		"club_count":     clubCount,
+		"activity_count": actCount,
+	}
+	c.JSON(http.StatusOK, response.Success(res))
+}
+
+type MyUpdateReq struct {
+	Name      string `json:"name"`
+	Gender    string `json:"gender"`
+	College   string `json:"college"`
+	StudentNo string `json:"student_no"`
+	Phone     string `json:"phone"`
+}
+
+// @Summary 更新我的信息
+// @Tags 学生
+// @Accept json
+// @Produce json
+// @Param payload body MyUpdateReq true "更新参数"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /student/me [put]
+func UpdateMyProfile(c *gin.Context) {
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	var req MyUpdateReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	if req.Gender != "" && !(req.Gender == "male" || req.Gender == "female" || req.Gender == "secret") {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	updates := map[string]any{}
+	if req.Name != "" {
+		updates["name"] = req.Name
+	}
+	if req.Gender != "" {
+		updates["gender"] = req.Gender
+	}
+	if req.College != "" {
+		updates["college"] = req.College
+	}
+	if req.StudentNo != "" {
+		updates["student_no"] = req.StudentNo
+	}
+	if req.Phone != "" {
+		updates["phone"] = req.Phone
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusOK, response.Success(map[string]any{"ok": true}))
+		return
+	}
+	if err := store.DB().Model(&models.User{}).Where("id = ?", u.ID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(map[string]any{"ok": true}))
+}

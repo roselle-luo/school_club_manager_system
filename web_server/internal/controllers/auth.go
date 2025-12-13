@@ -121,6 +121,7 @@ func MyProfile(c *gin.Context) {
 		"college":        u.College,
 		"student_no":     u.StudentNo,
 		"phone":          u.Phone,
+		"avatar":         u.Avatar,
 		"role":           u.Role.Code,
 		"club_count":     clubCount,
 		"activity_count": actCount,
@@ -134,6 +135,7 @@ type MyUpdateReq struct {
 	College   string `json:"college"`
 	StudentNo string `json:"student_no"`
 	Phone     string `json:"phone"`
+	Avatar    string `json:"avatar"`
 }
 
 // @Summary 更新我的信息
@@ -171,6 +173,9 @@ func UpdateMyProfile(c *gin.Context) {
 	}
 	if req.Phone != "" {
 		updates["phone"] = req.Phone
+	}
+	if req.Avatar != "" {
+		updates["avatar"] = req.Avatar
 	}
 	if len(updates) == 0 {
 		c.JSON(http.StatusOK, response.Success(map[string]any{"ok": true}))

@@ -15,6 +15,7 @@ type User struct {
 	College   string `gorm:"size:64" json:"college"`
 	StudentNo string `gorm:"size:32" json:"student_no"`
 	Phone     string `gorm:"size:20" json:"phone"`
+	Avatar    string `gorm:"size:255" json:"avatar"`
 	RoleID    uint   `gorm:"index" json:"role_id"`
 	Role      Role   `json:"role"`
 }

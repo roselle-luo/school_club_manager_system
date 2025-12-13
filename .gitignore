@@ -1,0 +1,10 @@
+mini_program/unpackage/
+mini_program/dist/
+web_front/dist/
+.trae/
+code_document.md
+mini_program/.hbuilderx/
+mini_program/.idea/
+web_server/.idea/
+web_server/cmd/
+web_server/public/uploads/

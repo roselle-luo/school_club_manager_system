@@ -31,6 +31,7 @@ func Register(r *gin.Engine) {
 	student.GET("/memberships/my", controllers.MyMemberships)
 	student.GET("/me", controllers.MyProfile)
 	student.PUT("/me", controllers.UpdateMyProfile)
+	student.PUT("/password", controllers.ChangePassword)
 	member := auth.Group("/member")
 	leader := auth.Group("/leader")
 	leader.GET("/clubs/:clubId/users", controllers.GetClubLeaders)
@@ -42,8 +43,20 @@ func Register(r *gin.Engine) {
 	leader.POST("/clubs/:clubId/memberships/:id/approve", controllers.ApproveMembership)
 	leader.POST("/clubs/:clubId/memberships/:id/reject", controllers.RejectMembership)
 	leader.GET("/clubs/:clubId/members/users", controllers.ListClubMembers)
+
+	leader.GET("/clubs/:clubId/announcements", controllers.ListClubAnnouncements)
+	leader.POST("/clubs/:clubId/announcements", controllers.CreateAnnouncement)
+	leader.PUT("/clubs/:clubId/announcements/:id", controllers.UpdateAnnouncement)
+	leader.DELETE("/clubs/:clubId/announcements/:id", controllers.DeleteAnnouncement)
+
+	// 考勤管理相关接口
+	leader.GET("/attendance/list", controllers.ListManagedAttendance)
+	leader.POST("/attendance/:id/signout", controllers.ForceSignOut)
+
 	admin := auth.Group("/admin")
+	admin.DELETE("/clubs/:clubId", controllers.DissolveClub)
 	admin.POST("/memberships/:id/role", controllers.UpdateMembershipRole)
+	admin.GET("/attendance", controllers.ListManagedAttendance) // 保留原有路由，指向新控制器
 
 	member.POST("/activities/:activityId/signin", controllers.SignIn)
 	member.POST("/activities/:activityId/signout", controllers.SignOut)

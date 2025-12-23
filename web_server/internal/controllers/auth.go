@@ -115,6 +115,7 @@ func MyProfile(c *gin.Context) {
 	_ = store.DB().Model(&models.Membership{}).Where("user_id = ? AND status = ?", u.ID, "approved").Count(&clubCount).Error
 	_ = store.DB().Model(&models.Attendance{}).Where("user_id = ?", u.ID).Count(&actCount).Error
 	res := map[string]any{
+		"id":             u.ID,
 		"account":        u.Account,
 		"name":           u.Name,
 		"gender":         u.Gender,
@@ -183,6 +184,43 @@ func UpdateMyProfile(c *gin.Context) {
 	}
 	if err := store.DB().Model(&models.User{}).Where("id = ?", u.ID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(map[string]any{"ok": true}))
+}
+
+type ChangePasswordReq struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+// @Summary 修改密码
+// @Tags 学生
+// @Accept json
+// @Produce json
+// @Param payload body ChangePasswordReq true "密码参数"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /student/password [put]
+func ChangePassword(c *gin.Context) {
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	var req ChangePasswordReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	if !password.Compare(u.Password, req.OldPassword) {
+		c.JSON(http.StatusBadRequest, response.Error(400, "旧密码错误"))
+		return
+	}
+	hp, err := password.Hash(req.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "修改失败"))
+		return
+	}
+	if err := store.DB().Model(&models.User{}).Where("id = ?", u.ID).Update("password", hp).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "修改失败"))
 		return
 	}
 	c.JSON(http.StatusOK, response.Success(map[string]any{"ok": true}))

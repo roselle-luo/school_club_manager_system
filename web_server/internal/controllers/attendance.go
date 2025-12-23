@@ -432,3 +432,47 @@ func DeleteAttendance(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, response.Success(nil))
 }
+
+// @Summary 强制签退（负责人）
+// @Tags 考勤
+// @Produce json
+// @Param id path int true "考勤记录ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /leader/attendance/{id}/signout [post]
+func ForceSignOut(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	var att models.Attendance
+	if err := store.DB().Where("id = ?", id).First(&att).Error; err != nil {
+		c.JSON(http.StatusNotFound, response.Error(404, "不存在"))
+		return
+	}
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, att.ClubID)) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	if att.SignoutAt != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "该记录已签退"))
+		return
+	}
+	now := time.Now()
+	if att.SigninAt != nil {
+		d := now.Sub(*att.SigninAt)
+		att.DurationMinutes = int(d.Minutes())
+		hours := d.Hours()
+		att.DurationHours = math.Round(hours*100) / 100
+	}
+	att.SignoutAt = &now
+	if err := store.DB().Save(&att).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "强制签退失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(att))
+}

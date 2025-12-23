@@ -313,3 +313,48 @@ func ListClubMembers(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, response.Success(map[string]any{"list": list, "pagination": info}))
 }
+
+// @Summary 解散社团
+// @Tags 管理员
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /admin/clubs/{clubId} [delete]
+func DissolveClub(c *gin.Context) {
+	clubIDStr := c.Param("clubId")
+	clubID, err := strconv.Atoi(clubIDStr)
+	if err != nil || clubID <= 0 {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !authz.IsAdmin(u) {
+		c.JSON(http.StatusForbidden, response.Error(403, "权限不足：只有学校管理员可以解散社团"))
+		return
+	}
+
+	tx := store.DB().Begin()
+	// 删除社团成员
+	if err := tx.Where("club_id = ?", clubID).Delete(&models.Membership{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(500, "解散失败：删除成员失败"))
+		return
+	}
+	// 删除社团活动
+	if err := tx.Where("club_id = ?", clubID).Delete(&models.Activity{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(500, "解散失败：删除活动失败"))
+		return
+	}
+	// 删除社团
+	if err := tx.Delete(&models.Club{}, clubID).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(500, "解散失败"))
+		return
+	}
+	tx.Commit()
+
+	c.JSON(http.StatusOK, response.Success(nil))
+}

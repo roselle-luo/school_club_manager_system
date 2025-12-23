@@ -30,8 +30,10 @@ type Activity struct {
 type Attendance struct {
 	BaseModel
 	UserID          uint       `gorm:"index" json:"user_id"`
+	User            User       `json:"user"`
 	ActivityID      *uint      `gorm:"index" json:"activity_id"`
 	ClubID          uint       `gorm:"index" json:"club_id"`
+	Club            Club       `json:"club"`
 	Type            string     `gorm:"size:16" json:"type"`
 	SigninAt        *time.Time `json:"signin_at"`
 	SignoutAt       *time.Time `json:"signout_at"`

@@ -30,7 +30,10 @@ export const useUserStore = defineStore('user', {
           // 2. Check if manages any clubs
           try {
             const clubsRes = await getManagedClubs(userInfo.id)
-            if (clubsRes.list && clubsRes.list.length > 0) {
+            // Backend returns array of clubs directly
+            if (Array.isArray(clubsRes) && clubsRes.length > 0) {
+              hasPermission = true
+            } else if (clubsRes.list && clubsRes.list.length > 0) {
               hasPermission = true
             }
           } catch (err) {

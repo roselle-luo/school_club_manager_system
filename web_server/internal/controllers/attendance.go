@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
@@ -430,6 +431,7 @@ func DeleteAttendance(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "删除失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "修改打卡", fmt.Sprintf("删除考勤记录 %d", id), att.ClubID)
 	c.JSON(http.StatusOK, response.Success(nil))
 }
 
@@ -474,5 +476,6 @@ func ForceSignOut(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "强制签退失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "修改打卡", fmt.Sprintf("强制签退考勤记录 %d", id), att.ClubID)
 	c.JSON(http.StatusOK, response.Success(att))
 }

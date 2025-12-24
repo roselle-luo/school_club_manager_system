@@ -19,20 +19,13 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="成员姓名">
-          <el-input v-model="queryParams.user_name" placeholder="请输入成员姓名" clearable @keyup.enter="handleQuery" />
-        </el-form-item>
-        <el-form-item label="学号">
-          <el-input v-model="queryParams.student_no" placeholder="请输入学号" clearable @keyup.enter="handleQuery" />
-        </el-form-item>
-        <el-form-item label="考勤日期">
-          <el-date-picker
-            v-model="queryParams.date"
-            type="date"
-            placeholder="选择日期"
-            value-format="YYYY-MM-DD"
-            clearable
-            @change="handleQuery"
+        <el-form-item label="搜索">
+          <el-input 
+            v-model="queryParams.keyword" 
+            placeholder="请输入姓名或学号" 
+            clearable 
+            @keyup.enter="handleQuery" 
+            style="width: 200px"
           />
         </el-form-item>
         <el-form-item>
@@ -51,42 +44,37 @@
       >
         <el-table-column type="index" label="序号" width="50" align="center" />
         <el-table-column prop="club.name" label="社团名称" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="user.name" label="成员姓名" width="100" />
-        <el-table-column prop="user.student_no" label="成员学号" width="120" />
-        <el-table-column prop="user.college" label="成员学院" width="120" show-overflow-tooltip />
-        <el-table-column prop="type" label="考勤类型" width="100">
+        <el-table-column prop="user.name" label="申请人姓名" width="120" />
+        <el-table-column prop="user.student_no" label="学号" width="120" />
+        <el-table-column prop="user.college" label="学院" width="150" show-overflow-tooltip />
+        <el-table-column prop="user.phone" label="联系电话" width="120" />
+        <el-table-column prop="created_at" label="申请时间" width="180">
           <template #default="scope">
-            <el-tag :type="scope.row.type === 'activity' ? 'success' : 'primary'">
-              {{ scope.row.type === 'activity' ? '活动考勤' : '值班考勤' }}
-            </el-tag>
+            {{ formatDate(scope.row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="考勤时间" width="320">
+        <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="scope">
-             <div>签到: {{ formatDate(scope.row.signin_at) }}</div>
-             <div v-if="scope.row.signout_at">签退: {{ formatDate(scope.row.signout_at) }}</div>
+            <el-tag type="warning">待审核</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="duration_hours" label="时长(小时)" width="100" align="center" />
         <el-table-column label="操作" width="180" align="center" fixed="right">
           <template #default="scope">
             <el-button
-              v-if="!scope.row.signout_at"
-              type="warning"
+              type="success"
               link
               size="small"
-              @click="handleForceSignOut(scope.row)"
+              @click="handleApprove(scope.row)"
             >
-              强制签退
+              同意
             </el-button>
             <el-button
-              v-else
               type="danger"
               link
               size="small"
-              @click="handleDelete(scope.row)"
+              @click="handleReject(scope.row)"
             >
-              删除
+              拒绝
             </el-button>
           </template>
         </el-table-column>
@@ -109,8 +97,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { getAllAttendance, forceSignOut, deleteAttendance } from '@/api/admin'
-import { getManagedClubs, getClubs } from '@/api/club'
+import { getManagedClubs, getClubs, getPendingMemberships, approveMembership, rejectMembership } from '@/api/club'
 import { useUserStore } from '@/stores/user'
 import { Search, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -126,10 +113,13 @@ const queryParams = reactive({
   page: 1,
   size: 10,
   club_id: '',
-  user_name: '',
-  student_no: '',
-  date: ''
+  keyword: ''
 })
+
+const formatDate = (date) => {
+  if (!date) return '-'
+  return dayjs(date).format('YYYY-MM-DD HH:mm:ss')
+}
 
 const getClubList = async () => {
   if (!userStore.userInfo) return
@@ -137,11 +127,9 @@ const getClubList = async () => {
   try {
     let res
     if (userStore.userInfo.role.code === 'admin') {
-      // 管理员获取所有社团
       res = await getClubs({ pageSize: 1000 })
       clubList.value = res.list || []
     } else {
-      // 负责人获取管理的社团
       res = await getManagedClubs(userStore.userInfo.id, { pageSize: 1000 })
       // Backend returns array directly for getManagedClubs
       clubList.value = Array.isArray(res) ? res : (res.list || [])
@@ -152,21 +140,32 @@ const getClubList = async () => {
       queryParams.club_id = clubList.value[0].id
     }
     
-    // 获取到社团列表后再获取考勤列表，确保有默认筛选条件（如果有）
     getList()
   } catch (error) {
     console.error('Failed to fetch clubs:', error)
-    // 即使获取社团失败，也尝试获取考勤列表
     getList()
   }
 }
 
 const getList = async () => {
+  if (!queryParams.club_id) {
+    list.value = []
+    total.value = 0
+    return
+  }
+
   loading.value = true
   try {
-    const res = await getAllAttendance(queryParams)
-    list.value = res.list
-    total.value = res.total
+    const res = await getPendingMemberships(queryParams.club_id, {
+      page: queryParams.page,
+      pageSize: queryParams.size,
+      keyword: queryParams.keyword
+    })
+    list.value = res.list || []
+    total.value = res.pagination ? res.pagination.total : 0
+  } catch (error) {
+    console.error('Failed to fetch pending memberships:', error)
+    list.value = []
   } finally {
     loading.value = false
   }
@@ -178,16 +177,12 @@ const handleQuery = () => {
 }
 
 const resetQuery = () => {
-  // 不重置社团选择，因为是必选的上下文（或者根据需求重置为默认第一个？）
-  // 如果要重置为默认第一个：
   if (clubList.value.length > 0) {
     queryParams.club_id = clubList.value[0].id
   } else {
     queryParams.club_id = ''
   }
-  queryParams.user_name = ''
-  queryParams.student_no = ''
-  queryParams.date = ''
+  queryParams.keyword = ''
   handleQuery()
 }
 
@@ -201,23 +196,18 @@ const handleCurrentChange = (val) => {
   getList()
 }
 
-const formatDate = (dateStr) => {
-  if (!dateStr) return '-'
-  return dayjs(dateStr).format('YYYY-MM-DD HH:mm:ss')
-}
-
-const handleForceSignOut = (row) => {
+const handleApprove = (row) => {
   ElMessageBox.confirm(
-    '确认要强制签退该记录吗？系统将以当前时间作为签退时间。',
+    `确定要同意 ${row.user.name} 加入社团吗？`,
     '提示',
     {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning',
+      type: 'success',
     }
   ).then(async () => {
     try {
-      await forceSignOut(row.id)
+      await approveMembership(queryParams.club_id, row.id)
       ElMessage.success('操作成功')
       getList()
     } catch (error) {
@@ -226,10 +216,10 @@ const handleForceSignOut = (row) => {
   })
 }
 
-const handleDelete = (row) => {
+const handleReject = (row) => {
   ElMessageBox.confirm(
-    '确认要删除该考勤记录吗？此操作不可恢复！',
-    '警告',
+    `确定要拒绝 ${row.user.name} 加入社团吗？`,
+    '提示',
     {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
@@ -237,8 +227,8 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      await deleteAttendance(row.id)
-      ElMessage.success('删除成功')
+      await rejectMembership(queryParams.club_id, row.id)
+      ElMessage.success('操作成功')
       getList()
     } catch (error) {
       console.error(error)
@@ -247,7 +237,6 @@ const handleDelete = (row) => {
 }
 
 onMounted(() => {
-  // 先获取社团列表，获取成功后会自动调用getList
   getClubList()
 })
 </script>

@@ -26,7 +26,7 @@
             <el-tag :type="getRoleType(scope.row.role)">{{ getRoleLabel(scope.row.role) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="scope">
             <el-button 
               type="primary" 
@@ -36,6 +36,15 @@
               :disabled="!canEdit(scope.row)"
             >
               修改权限
+            </el-button>
+            <el-button 
+              type="danger" 
+              link 
+              size="small" 
+              @click="handleKick(scope.row)"
+              :disabled="!canKick(scope.row)"
+            >
+              删除成员
             </el-button>
           </template>
         </el-table-column>
@@ -82,9 +91,9 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
-import { getManagedClubs, getClubMembers, updateMemberRole } from '@/api/club'
+import { getManagedClubs, getClubMembers, updateMemberRole, kickMember } from '@/api/club'
 import { useUserStore } from '@/stores/user'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const userStore = useUserStore()
 const managedClubs = ref([])
@@ -142,6 +151,21 @@ const canEdit = (row) => {
   return myLevel > targetLevel
 }
 
+// Check if current user can kick target user
+const canKick = (row) => {
+  // Leader cannot be kicked by anyone (including admin)
+  if (row.role === 'leader') return false
+
+  // School Admin can kick anyone (except leader, checked above)
+  if (userStore.userInfo?.role === 'admin') return true
+  
+  // Club Leader/Admin can only kick users with lower level
+  const myLevel = getRoleLevel(currentUserRoleInClub.value)
+  const targetLevel = getRoleLevel(row.role)
+  
+  return myLevel > targetLevel
+}
+
 // Available roles to assign: only roles <= my level
 const availableRoles = computed(() => {
   const isAdmin = userStore.userInfo?.role === 'admin'
@@ -160,7 +184,8 @@ const fetchManagedClubs = async () => {
   if (!userStore.userInfo?.id) return
   try {
     const res = await getManagedClubs(userStore.userInfo.id, { pageSize: 1000 })
-    managedClubs.value = res.list || []
+    // Backend returns array directly for getManagedClubs
+    managedClubs.value = Array.isArray(res) ? res : (res.list || [])
     if (managedClubs.value.length > 0) {
       currentClubId.value = managedClubs.value[0].id
       updateCurrentRole()
@@ -208,6 +233,28 @@ const handleEditRole = (row) => {
   currentRow.value = row
   form.role = row.role
   dialogVisible.value = true
+}
+
+const handleKick = (row) => {
+  ElMessageBox.confirm(
+    `确定要将成员 "${row.user.name}" 踢出社团吗？此操作不可恢复！`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    }
+  )
+    .then(async () => {
+      try {
+        await kickMember(currentClubId.value, row.user.id)
+        ElMessage.success('成员已踢出')
+        getList()
+      } catch (error) {
+        console.error(error)
+      }
+    })
+    .catch(() => {})
 }
 
 const submitRoleChange = async () => {

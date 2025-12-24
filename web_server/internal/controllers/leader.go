@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"web_server/db/models"
@@ -12,150 +13,97 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// @Summary 获取社团负责人列表
+// @Summary 获取当前用户管理的社团
 // @Tags 负责人
 // @Produce json
-// @Param clubId path int true "社团ID"
-// @Param page query int false "页码"
-// @Param pageSize query int false "每页数量"
 // @Security Bearer
 // @Success 200 {object} response.Body
-// @Router /leader/clubs/{clubId}/users [get]
-func GetClubLeaders(c *gin.Context) {
-	clubIDStr := c.Param("clubId")
-	clubID, err := strconv.Atoi(clubIDStr)
-	if err != nil || clubID <= 0 {
-		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
-		return
-	}
-	cu, _ := c.Get("currentUser")
-	user := cu.(*models.User)
-	if !(authz.IsAdmin(user) || authz.IsClubLeader(user.ID, uint(clubID))) {
-		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
-		return
-	}
-	var items []models.Membership
-	q := store.DB().Model(&models.Membership{}).Where("club_id = ? AND role IN ?", clubID, []string{"leader", "advisor"}).Preload("User").Order("id DESC")
-	pg := pagination.Get(c)
-	info, err := pagination.Do(q, pg, &items)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
-		return
-	}
-	users := make([]models.User, 0, len(items))
-	for _, m := range items {
-		users = append(users, m.User)
-	}
-	c.JSON(http.StatusOK, response.Success(map[string]any{"list": users, "pagination": info}))
-}
-
-// @Summary 获取用户负责的社团列表
-// @Tags 负责人
-// @Produce json
-// @Param userId path int true "用户ID"
-// @Param page query int false "页码"
-// @Param pageSize query int false "每页数量"
-// @Param keyword query string false "关键词：社团名称"
-// @Security Bearer
-// @Success 200 {object} response.Body
-// @Router /leader/users/{userId}/clubs [get]
+// @Router /leader/clubs [get]
 func GetUserLeaderClubs(c *gin.Context) {
-	userIDStr := c.Param("userId")
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil || userID <= 0 {
-		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
-		return
-	}
 	cu, _ := c.Get("currentUser")
-	user := cu.(*models.User)
-	if !(authz.IsAdmin(user) || user.ID == uint(userID)) {
-		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
-		return
-	}
-
-	keyword := c.Query("keyword")
+	u := cu.(*models.User)
 
 	type ClubWithRole struct {
 		models.Club
 		Role string `json:"role"`
 	}
+	var result []ClubWithRole
 
-	// Special case: Admin viewing their own list sees ALL clubs
-	if authz.IsAdmin(user) && user.ID == uint(userID) {
+	if authz.IsAdmin(u) {
 		var clubs []models.Club
-		q := store.DB().Model(&models.Club{})
-		if keyword != "" {
-			q = q.Where("name LIKE ?", "%"+keyword+"%")
-		}
-		q = q.Preload("Category").Order("id DESC") // Preload Category for better display if needed
-
-		pg := pagination.Get(c)
-		info, err := pagination.Do(q, pg, &clubs)
-		if err != nil {
+		if err := store.DB().Preload("Category").Find(&clubs).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
 			return
 		}
-
-		result := make([]ClubWithRole, 0, len(clubs))
-		for _, cl := range clubs {
-			result = append(result, ClubWithRole{Club: cl, Role: "admin"})
+		for _, club := range clubs {
+			result = append(result, ClubWithRole{Club: club, Role: "admin"})
 		}
-		c.JSON(http.StatusOK, response.Success(map[string]any{"list": result, "pagination": info}))
-		return
+	} else {
+		// 查找担任leader或advisor的社团
+		var memberships []models.Membership
+		store.DB().Where("user_id = ? AND role IN ?", u.ID, []string{"leader", "advisor"}).Find(&memberships)
+
+		clubIDs := make([]uint, 0)
+		roleMap := make(map[uint]string)
+		for _, m := range memberships {
+			clubIDs = append(clubIDs, m.ClubID)
+			roleMap[m.ClubID] = m.Role
+		}
+
+		if len(clubIDs) > 0 {
+			var clubs []models.Club
+			store.DB().Preload("Category").Where("id IN ?", clubIDs).Find(&clubs)
+			for _, club := range clubs {
+				result = append(result, ClubWithRole{Club: club, Role: roleMap[club.ID]})
+			}
+		}
 	}
+	c.JSON(http.StatusOK, response.Success(result))
+}
 
-	var items []models.Membership
-	q := store.DB().Model(&models.Membership{}).Where("user_id = ? AND role IN ?", userID, []string{"leader", "advisor"})
+// @Summary 获取社团负责人列表
+// @Tags 负责人
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /leader/clubs/{clubId}/leaders [get]
+func GetClubLeaders(c *gin.Context) {
+	clubIDStr := c.Param("clubId")
+	clubID, _ := strconv.Atoi(clubIDStr)
 
-	if keyword != "" {
-		q = q.Joins("JOIN clubs ON clubs.id = memberships.club_id").Where("clubs.name LIKE ?", "%"+keyword+"%")
-	}
-
-	q = q.Preload("Club").Preload("Club.Category").Order("memberships.id DESC")
-
-	pg := pagination.Get(c)
-	info, err := pagination.Do(q, pg, &items)
-	if err != nil {
+	var members []models.Membership
+	if err := store.DB().Preload("User").Where("club_id = ? AND role IN ?", clubID, []string{"leader", "advisor"}).Find(&members).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
 		return
 	}
-	clubs := make([]ClubWithRole, 0, len(items))
-	for _, m := range items {
-		clubs = append(clubs, ClubWithRole{Club: m.Club, Role: m.Role})
-	}
-	c.JSON(http.StatusOK, response.Success(map[string]any{"list": clubs, "pagination": info}))
+	c.JSON(http.StatusOK, response.Success(members))
 }
 
-type setRoleReq struct {
-	Role string `json:"role" binding:"required"`
+type SetRoleReq struct {
+	Role string `json:"role" binding:"required"` // member, leader, advisor
 }
 
-// @Summary 负责人设定成员社团内角色
+// @Summary 负责人设定成员角色
 // @Tags 负责人
 // @Accept json
 // @Produce json
 // @Param clubId path int true "社团ID"
-// @Param userId path int true "用户ID"
-// @Param payload body setRoleReq true "角色值"
+// @Param userId path int true "成员用户ID"
+// @Param payload body SetRoleReq true "角色信息"
 // @Security Bearer
 // @Success 200 {object} response.Body
-// @Router /leader/clubs/{clubId}/members/{userId}/role [post]
+// @Router /leader/clubs/{clubId}/members/{userId}/role [put]
 func SetMemberRoleByLeader(c *gin.Context) {
 	clubIDStr := c.Param("clubId")
 	userIDStr := c.Param("userId")
-	clubID, err1 := strconv.Atoi(clubIDStr)
-	userID, err2 := strconv.Atoi(userIDStr)
-	if err1 != nil || err2 != nil || clubID <= 0 || userID <= 0 {
-		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
-		return
-	}
+	clubID, _ := strconv.Atoi(clubIDStr)
+	userID, _ := strconv.Atoi(userIDStr)
+
 	cu, _ := c.Get("currentUser")
 	user := cu.(*models.User)
-	if !(authz.IsAdmin(user) || authz.IsClubLeader(user.ID, uint(clubID))) {
-		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
-		return
-	}
-	var req setRoleReq
+
+	var req SetRoleReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
 		return
@@ -208,31 +156,223 @@ func SetMemberRoleByLeader(c *gin.Context) {
 		}
 	}
 
-	// 规则：社长同时只能有一个，且只有学校管理员可以设置社长
-	if req.Role == "leader" {
-		if !authz.IsAdmin(user) {
-			c.JSON(http.StatusForbidden, response.Error(403, "权限不足：只有学校管理员可以设置社长"))
-			return
-		}
-		// 如果要设置为社长，先把该社团其他所有社长降级为member
-		if err := store.DB().Model(&models.Membership{}).
-			Where("club_id = ? AND role = ?", clubID, "leader").
-			Update("role", "member").Error; err != nil {
-			c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
-			return
-		}
-	}
-
-	// 规则：如果目标用户当前是社长，只有学校管理员可以修改其权限（降级）
-	if m.Role == "leader" && !authz.IsAdmin(user) {
-		c.JSON(http.StatusForbidden, response.Error(403, "权限不足：只有学校管理员可以修改社长权限"))
-		return
-	}
-
 	m.Role = req.Role
 	if err := store.DB().Save(&m).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
 		return
 	}
+	RecordLog(user.ID, user.Name, "修改权限", fmt.Sprintf("修改用户 %d 角色为 %s", userID, req.Role), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(m))
+}
+
+// @Summary 待审批入会列表
+// @Tags 成员
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// ListPendingMembershipsOld (Renamed due to duplication)
+// @Router /leader/clubs/{clubId}/memberships/pending/old [get]
+func ListPendingMembershipsOld(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, uint(clubID))) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	var list []models.Membership
+	if err := store.DB().Preload("User").Where("club_id = ? AND status = ?", clubID, "pending").Find(&list).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(list))
+}
+
+// @Summary 审批通过成员（负责人）
+// @Tags 成员
+// @Accept json
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Param id path int true "成员关系ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// ApproveMembershipOld (Renamed due to duplication)
+// @Router /leader/clubs/{clubId}/memberships/{id}/approve/old [post]
+func ApproveMembershipOld(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	id, _ := strconv.Atoi(c.Param("id"))
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, uint(clubID))) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	var m models.Membership
+	if err := store.DB().Where("id = ? AND club_id = ?", id, clubID).First(&m).Error; err != nil {
+		c.JSON(http.StatusNotFound, response.Error(404, "成员不存在"))
+		return
+	}
+	m.Status = "approved"
+	if err := store.DB().Save(&m).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
+		return
+	}
+	RecordLog(u.ID, u.Name, "审批申请", fmt.Sprintf("批准成员 %d 加入社团", m.UserID), uint(clubID))
+	c.JSON(http.StatusOK, response.Success(m))
+}
+
+// @Summary 拒绝成员加入（负责人）
+// @Tags 成员
+// @Accept json
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Param id path int true "成员关系ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// RejectMembershipOld (Renamed due to duplication)
+// @Router /leader/clubs/{clubId}/memberships/{id}/reject/old [post]
+func RejectMembershipOld(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	id, _ := strconv.Atoi(c.Param("id"))
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, uint(clubID))) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	var m models.Membership
+	if err := store.DB().Where("id = ? AND club_id = ?", id, clubID).First(&m).Error; err != nil {
+		c.JSON(http.StatusNotFound, response.Error(404, "成员不存在"))
+		return
+	}
+	m.Status = "rejected"
+	if err := store.DB().Save(&m).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
+		return
+	}
+	RecordLog(u.ID, u.Name, "审批申请", fmt.Sprintf("拒绝成员 %d 加入社团", m.UserID), uint(clubID))
+	c.JSON(http.StatusOK, response.Success(m))
+}
+
+// @Summary 社团成员列表（负责人）
+// @Tags 成员
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Param page query int false "页码"
+// @Param pageSize query int false "每页数量"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /leader/clubs/{clubId}/members [get]
+func ListClubMembersLegacy(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, uint(clubID))) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	var list []models.Membership
+	q := store.DB().Preload("User").Where("club_id = ? AND status = ?", clubID, "approved")
+	pg := pagination.Get(c)
+	info, err := pagination.Do(q, pg, &list)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "查询失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(map[string]any{"list": list, "pagination": info}))
+}
+
+// @Summary 解散社团
+// @Tags 负责人
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// DissolveClubOld (Renamed due to duplication)
+// @Router /leader/clubs/{clubId}/old [delete]
+func DissolveClubOld(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	cu, _ := c.Get("currentUser")
+	u := cu.(*models.User)
+	if !(authz.IsAdmin(u) || authz.IsClubLeader(u.ID, uint(clubID))) {
+		c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+		return
+	}
+	if err := store.DB().Delete(&models.Club{}, clubID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "删除失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(nil))
+}
+
+// @Summary 踢出成员
+// @Tags 负责人
+// @Produce json
+// @Param clubId path int true "社团ID"
+// @Param userId path int true "用户ID"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /leader/clubs/{clubId}/members/{userId} [delete]
+func KickMember(c *gin.Context) {
+	clubID, _ := strconv.Atoi(c.Param("clubId"))
+	userID, _ := strconv.Atoi(c.Param("userId"))
+
+	cu, _ := c.Get("currentUser")
+	caller := cu.(*models.User)
+
+	// Get target membership
+	var targetM models.Membership
+	if err := store.DB().Where("user_id = ? AND club_id = ?", userID, clubID).First(&targetM).Error; err != nil {
+		c.JSON(http.StatusNotFound, response.Error(404, "成员不存在该社团"))
+		return
+	}
+
+	// Permission Logic
+	getRoleLevel := func(role string) int {
+		switch role {
+		case "leader":
+			return 3
+		case "advisor":
+			return 2
+		default:
+			return 1
+		}
+	}
+
+	targetLevel := getRoleLevel(targetM.Role)
+
+	// Special rule: Leader cannot be kicked by anyone (even Admin) via this interface
+	if targetM.Role == "leader" {
+		c.JSON(http.StatusForbidden, response.Error(403, "无法踢出社长"))
+		return
+	}
+
+	if authz.IsAdmin(caller) {
+		// Admin can kick anyone except leader (handled above)
+	} else {
+		// Club Leader/Advisor checks
+		var callerM models.Membership
+		if err := store.DB().Where("user_id = ? AND club_id = ?", caller.ID, clubID).First(&callerM).Error; err != nil {
+			c.JSON(http.StatusForbidden, response.Error(403, "无权限"))
+			return
+		}
+
+		myLevel := getRoleLevel(callerM.Role)
+
+		// Must have higher level than target
+		if myLevel <= targetLevel {
+			c.JSON(http.StatusForbidden, response.Error(403, "权限不足：只能踢出权限低于自己的成员"))
+			return
+		}
+	}
+
+	// Delete membership
+	if err := store.DB().Delete(&targetM).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "操作失败"))
+		return
+	}
+
+	RecordLog(caller.ID, caller.Name, "修改权限", fmt.Sprintf("将成员 %d 踢出社团", userID), uint(clubID))
+	c.JSON(http.StatusOK, response.Success(nil))
 }

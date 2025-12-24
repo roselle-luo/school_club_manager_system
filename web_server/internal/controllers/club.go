@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -177,6 +178,7 @@ func ExitClub(c *gin.Context) {
 // @Tags 成员
 // @Produce json
 // @Param clubId path int true "社团ID"
+// @Param keyword query string false "关键词：姓名/学号"
 // @Param page query int false "页码"
 // @Param pageSize query int false "每页数量"
 // @Security Bearer
@@ -197,6 +199,10 @@ func ListPendingMemberships(c *gin.Context) {
 	}
 	var list []models.Membership
 	q := store.DB().Model(&models.Membership{}).Where("club_id = ? AND status = ?", clubID, "pending").Preload("User").Order("id DESC")
+	if kw := c.Query("keyword"); kw != "" {
+		like := "%%" + kw + "%%"
+		q = q.Where("user_id IN (SELECT id FROM users WHERE name LIKE ? OR student_no LIKE ?)", like, like)
+	}
 	pg := pagination.Get(c)
 	info, err := pagination.Do(q, pg, &list)
 	if err != nil {
@@ -234,6 +240,7 @@ func ApproveMembership(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "审批申请", fmt.Sprintf("批准成员 %d 加入社团", m.UserID), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(m))
 }
 
@@ -265,6 +272,7 @@ func RejectMembership(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "审批申请", fmt.Sprintf("驳回成员 %d 加入社团", m.UserID), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(m))
 }
 

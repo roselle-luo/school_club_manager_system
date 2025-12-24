@@ -18,6 +18,7 @@
           <view class="meta">
             <text class="count">{{ (item.activities||[]).length }}个活动</text>
             <button class="act" v-if="btnState(item.id)==='join'" @tap.stop="join(item.id)">加入</button>
+            <button class="act" v-else-if="btnState(item.id)==='manage'" @tap.stop="goDetail(item.id)">管理</button>
             <button class="act danger" v-else-if="btnState(item.id)==='exit'" @tap.stop="exitClub(item.id)">退出</button>
             <button class="act disabled" v-else @tap.stop>审批中</button>
           </view>
@@ -68,7 +69,7 @@ export default {
         const data = await request({ url: '/student/memberships/my', method: 'GET', data: { page: 1, pageSize: 200 } })
         const ms = data.list || []
         const m = {}
-        ms.forEach(it=>{ m[it.club_id || (it.club && it.club.id) ] = it.status })
+        ms.forEach(it=>{ m[it.club_id || (it.club && it.club.id) ] = { status: it.status, role: it.role } })
         this.memberships = m
       } catch(e) { this.memberships = {} }
     },
@@ -98,9 +99,13 @@ export default {
       return c.key === this.selectedChipKey ? 'on' : ''
     },
     btnState(cid) {
-      const st = this.memberships[cid]
-      if (!st) return 'join'
-      if (st === 'approved') return 'exit'
+      const m = this.memberships[cid]
+      if (!m) return 'join'
+      if (m.status === 'quit' || m.status === 'rejected') return 'join'
+      if (m.status === 'approved') {
+        if (m.role === 'leader' || m.role === 'advisor') return 'manage'
+        return 'exit'
+      }
       return 'pending'
     },
     async join(cid) {

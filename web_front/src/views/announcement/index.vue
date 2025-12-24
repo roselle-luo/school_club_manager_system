@@ -106,7 +106,8 @@ const rules = {
 const getClubs = async () => {
   if (!userStore.userInfo?.id) return
   const res = await getManagedClubs(userStore.userInfo.id, { pageSize: 100 })
-  managedClubs.value = res.list || []
+  // Backend returns array directly for getManagedClubs
+  managedClubs.value = Array.isArray(res) ? res : (res.list || [])
   if (managedClubs.value.length > 0) {
     currentClubId.value = managedClubs.value[0].id
     getList()

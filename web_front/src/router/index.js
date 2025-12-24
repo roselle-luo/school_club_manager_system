@@ -49,14 +49,14 @@ const router = createRouter({
         {
           path: 'clubs/audit',
           name: 'ClubAudit',
-          component: () => import('@/views/dashboard/index.vue'), // Placeholder
-          meta: { title: '社团审核' }
+          component: () => import('@/views/admin/club/audit/index.vue'),
+          meta: { title: '社团审核', icon: 'Files' }
         },
         {
-          path: 'activities/:id',
-          name: 'ActivityDetail',
-          component: () => import('@/views/activities/detail.vue'),
-          meta: { title: '活动详情', hidden: true }
+          path: 'logs',
+          name: 'ManagementLogs',
+          component: () => import('@/views/logs/index.vue'),
+          meta: { title: '管理日志', icon: 'Document' }
         },
         {
           path: 'announcement',

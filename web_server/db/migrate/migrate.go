@@ -21,6 +21,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Attendance{},
 		&models.Achievement{},
 		&models.ActivityParticipant{},
+		&models.OperationLog{},
 	)
 }
 

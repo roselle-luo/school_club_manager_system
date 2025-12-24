@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"web_server/db/models"
@@ -95,6 +96,7 @@ func CreateAnnouncement(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "创建失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "发布公告", fmt.Sprintf("发布公告: %s", req.Title), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(ann))
 }
 
@@ -148,6 +150,7 @@ func UpdateAnnouncement(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "更新失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "修改公告", fmt.Sprintf("修改公告 %d: %s", id, req.Title), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(ann))
 }
 
@@ -179,5 +182,6 @@ func DeleteAnnouncement(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, response.Error(500, "删除失败"))
 		return
 	}
+	RecordLog(u.ID, u.Name, "删除公告", fmt.Sprintf("删除公告 %d", id), uint(clubID))
 	c.JSON(http.StatusOK, response.Success(nil))
 }

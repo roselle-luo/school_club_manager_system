@@ -37,6 +37,7 @@ func Register(r *gin.Engine) {
 	leader.GET("/clubs/:clubId/users", controllers.GetClubLeaders)
 	leader.GET("/users/:userId/clubs", controllers.GetUserLeaderClubs)
 	leader.POST("/clubs/:clubId/members/:userId/role", controllers.SetMemberRoleByLeader)
+	leader.DELETE("/clubs/:clubId/members/:userId", controllers.KickMember)
 	leader.GET("/clubs/:clubId/attendance", controllers.ClubAttendance)
 	leader.DELETE("/attendance/:id", controllers.DeleteAttendance)
 	leader.GET("/clubs/:clubId/memberships", controllers.ListPendingMemberships)
@@ -48,6 +49,8 @@ func Register(r *gin.Engine) {
 	leader.POST("/clubs/:clubId/announcements", controllers.CreateAnnouncement)
 	leader.PUT("/clubs/:clubId/announcements/:id", controllers.UpdateAnnouncement)
 	leader.DELETE("/clubs/:clubId/announcements/:id", controllers.DeleteAnnouncement)
+
+	leader.GET("/clubs/:clubId/logs", controllers.ListOperationLogs)
 
 	// 考勤管理相关接口
 	leader.GET("/attendance/list", controllers.ListManagedAttendance)

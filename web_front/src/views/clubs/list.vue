@@ -108,8 +108,26 @@ const getList = async () => {
   loading.value = true
   try {
     const res = await getManagedClubs(userStore.userInfo.id, queryParams)
-    list.value = res.list || []
-    total.value = res.pagination.total
+    
+    // Handle array response from backend
+    const rawList = Array.isArray(res) ? res : (res.list || [])
+    
+    // Filter by keyword if needed (client-side filtering)
+    let filtered = rawList
+    if (queryParams.keyword) {
+      const keyword = queryParams.keyword.toLowerCase()
+      filtered = rawList.filter(item => 
+        item.name.toLowerCase().includes(keyword)
+      )
+    }
+    
+    total.value = filtered.length
+    
+    // Client-side pagination
+    const start = (queryParams.page - 1) * queryParams.size
+    const end = start + queryParams.size
+    list.value = filtered.slice(start, end)
+    
   } finally {
     loading.value = false
   }

@@ -100,11 +100,34 @@ export function getClubAttendance(clubId, params) {
   })
 }
 
+export function getClubLogs(clubId, params) {
+  return request({
+    url: `/leader/clubs/${clubId}/logs`,
+    method: 'get',
+    params
+  })
+}
+
+export function getOperationLogs(clubId, params) {
+  return request({
+    url: `/leader/clubs/${clubId}/logs`,
+    method: 'get',
+    params
+  })
+}
+
 export function updateMemberRole(clubId, userId, data) {
   return request({
     url: `/leader/clubs/${clubId}/members/${userId}/role`,
     method: 'post',
     data
+  })
+}
+
+export function kickMember(clubId, userId) {
+  return request({
+    url: `/leader/clubs/${clubId}/members/${userId}`,
+    method: 'delete'
   })
 }
 

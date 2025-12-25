@@ -22,3 +22,19 @@ export function getActivityDetail(id) {
     method: 'get'
   })
 }
+
+export function getCategories() {
+  return request({
+    url: '/public/categories',
+    method: 'get'
+  })
+}
+
+export function registerClub(data) {
+  return request({
+    url: '/public/clubs/register',
+    method: 'post',
+    data
+  })
+}
+

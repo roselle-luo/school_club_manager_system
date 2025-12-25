@@ -44,13 +44,19 @@ const router = createRouter({
           path: 'clubs/list',
           name: 'ClubList',
           component: () => import('@/views/clubs/list.vue'),
-          meta: { title: '社团列表' }
+          meta: { title: '社团列表', icon: 'List' }
         },
         {
           path: 'clubs/audit',
-          name: 'ClubAudit',
+          name: 'ClubMembershipAudit',
+          component: () => import('@/views/clubs/audit.vue'),
+          meta: { title: '入团申请审核', icon: 'UserFilled' }
+        },
+        {
+          path: 'admin/club/audit',
+          name: 'ClubCreationAudit',
           component: () => import('@/views/admin/club/audit/index.vue'),
-          meta: { title: '社团审核', icon: 'Files' }
+          meta: { title: '社团创建审批', icon: 'Files', roles: ['admin'] }
         },
         {
           path: 'logs',

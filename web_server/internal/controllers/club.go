@@ -9,10 +9,94 @@ import (
 	"web_server/internal/authz"
 	"web_server/internal/store"
 	"web_server/pkg/pagination"
+	"web_server/pkg/password"
 	"web_server/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
+
+type RegisterClubReq struct {
+	Name       string `json:"name" binding:"required"`
+	Logo       string `json:"logo"`
+	Intro      string `json:"intro"`
+	Contact    string `json:"contact"`
+	CategoryID uint   `json:"category_id" binding:"required"`
+	Account    string `json:"account" binding:"required"`
+	Password   string `json:"password" binding:"required"`
+}
+
+// @Summary 注册社团申请
+// @Tags 公共
+// @Accept json
+// @Produce json
+// @Param payload body RegisterClubReq true "社团信息"
+// @Success 200 {object} response.Body
+// @Router /public/clubs/register [post]
+func RegisterClub(c *gin.Context) {
+	var req RegisterClubReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+
+	// Verify User
+	var u models.User
+	if err := store.DB().Where("account = ?", req.Account).First(&u).Error; err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "账号不存在"))
+		return
+	}
+
+	// Verify Password
+	if !password.Compare(u.Password, req.Password) {
+		c.JSON(http.StatusBadRequest, response.Error(400, "密码错误"))
+		return
+	}
+
+	// Check if name exists
+	var count int64
+	store.DB().Model(&models.Club{}).Where("name = ?", req.Name).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, response.Error(400, "社团名称已存在"))
+		return
+	}
+
+	tx := store.DB().Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	club := models.Club{
+		Name:       req.Name,
+		Logo:       req.Logo,
+		Intro:      req.Intro,
+		Contact:    req.Contact,
+		CategoryID: req.CategoryID,
+		Status:     "pending",
+	}
+	if err := tx.Create(&club).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(500, "注册失败"))
+		return
+	}
+
+	// Create Membership as Leader
+	member := models.Membership{
+		UserID: u.ID,
+		ClubID: club.ID,
+		Role:   "leader",
+		Status: "approved", // Automatically approved as creator
+	}
+	if err := tx.Create(&member).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, response.Error(500, "注册失败"))
+		return
+	}
+
+	tx.Commit()
+	c.JSON(http.StatusOK, response.Success(club))
+}
 
 type ClubItem struct {
 	ID          uint           `json:"id"`
@@ -41,7 +125,7 @@ type ActivityItem struct {
 // @Router /public/clubs [get]
 func ListClubs(c *gin.Context) {
 	var clubs []models.Club
-	q := store.DB().Model(&models.Club{}).Preload("Category")
+	q := store.DB().Model(&models.Club{}).Preload("Category").Where("status = ?", "approved")
 	if cid := c.Query("categoryId"); cid != "" {
 		if v, err := strconv.Atoi(cid); err == nil && v > 0 {
 			q = q.Where("category_id = ?", v)

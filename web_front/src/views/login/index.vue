@@ -45,6 +45,7 @@
             </el-form-item>
             <div class="form-options">
                <el-checkbox v-model="loginForm.remember">记住密码</el-checkbox>
+               <a class="register-link" @click="showRegisterDialog">点此申请注册社团 -></a>
             </div>
             <el-form-item>
               <el-button type="primary" class="login-btn" :loading="loading" @click="handleLogin">
@@ -55,6 +56,53 @@
         </div>
       </div>
     </div>
+    <el-dialog v-model="registerDialogVisible" title="社团注册" width="500px">
+      <el-form :model="registerForm" :rules="registerRules" ref="registerFormRef" label-width="80px">
+        <div class="logo-upload-container">
+          <el-upload
+            class="avatar-uploader"
+            action="/api/v1/public/upload/image"
+            :show-file-list="false"
+            :on-success="handleAvatarSuccess"
+            :before-upload="beforeAvatarUpload"
+            name="file"
+          >
+            <img v-if="registerForm.logo" :src="registerForm.logo" class="avatar" />
+            <div v-else class="upload-placeholder">
+              <el-icon class="avatar-uploader-icon"><Plus /></el-icon>
+              <div class="upload-text">上传logo</div>
+            </div>
+          </el-upload>
+        </div>
+        <el-form-item label="社团名称" prop="name">
+          <el-input v-model="registerForm.name" />
+        </el-form-item>
+        <el-form-item label="社团分类" prop="category_id">
+          <el-select v-model="registerForm.category_id" placeholder="请选择">
+            <el-option v-for="item in categories" :key="item.id" :label="item.name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="联系方式" prop="contact">
+          <el-input v-model="registerForm.contact" />
+        </el-form-item>
+        <el-form-item label="社团简介" prop="intro">
+          <el-input v-model="registerForm.intro" type="textarea" />
+        </el-form-item>
+        <el-divider>申请人验证</el-divider>
+        <el-form-item label="账号" prop="account">
+          <el-input v-model="registerForm.account" placeholder="请输入您的学号/工号" />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="registerForm.password" type="password" placeholder="请输入登录密码" show-password />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="registerDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleRegister">提交</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -62,8 +110,9 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
-import { User, Lock, Key } from '@element-plus/icons-vue'
+import { User, Lock, Key, Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { getCategories, registerClub } from '@/api/public'
 
 const userStore = useUserStore()
 const router = useRouter()
@@ -71,6 +120,79 @@ const loginFormRef = ref(null)
 const loading = ref(false)
 const captchaCanvas = ref(null)
 const generatedCode = ref('')
+
+const registerDialogVisible = ref(false)
+const registerFormRef = ref(null)
+const categories = ref([])
+const registerForm = reactive({
+  name: '',
+  logo: '',
+  intro: '',
+  contact: '',
+  category_id: '',
+  account: '',
+  password: ''
+})
+const registerRules = {
+  name: [{ required: true, message: '请输入社团名称', trigger: 'blur' }],
+  category_id: [{ required: true, message: '请选择社团分类', trigger: 'change' }],
+  account: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
+
+const showRegisterDialog = async () => {
+  registerDialogVisible.value = true
+  try {
+    const res = await getCategories()
+    categories.value = res.list || []
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const handleAvatarSuccess = (response) => {
+  if (response.code === 0) {
+    registerForm.logo = response.data.url
+  } else {
+    ElMessage.error(response.msg || '上传失败')
+  }
+}
+
+const beforeAvatarUpload = (rawFile) => {
+  const isImg = rawFile.type === 'image/jpeg' || rawFile.type === 'image/png'
+  const isLt2M = rawFile.size / 1024 / 1024 < 2
+
+  if (!isImg) {
+    ElMessage.error('Avatar picture must be JPG/PNG format!')
+  }
+  if (!isLt2M) {
+    ElMessage.error('Avatar picture size can not exceed 2MB!')
+  }
+  return isImg && isLt2M
+}
+
+const handleRegister = async () => {
+  if (!registerFormRef.value) return
+  await registerFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        await registerClub(registerForm)
+        ElMessage.success('申请提交成功')
+        registerDialogVisible.value = false
+        // reset
+        registerForm.name = ''
+        registerForm.logo = ''
+        registerForm.intro = ''
+        registerForm.contact = ''
+        registerForm.category_id = ''
+        registerForm.account = ''
+        registerForm.password = ''
+      } catch (e) {
+        // handled by request interceptor
+      }
+    }
+  })
+}
 
 const loginForm = reactive({
   account: '',
@@ -253,6 +375,7 @@ const handleLogin = async () => {
 .form-options {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
 }
 
@@ -272,5 +395,52 @@ const handleLogin = async () => {
   cursor: pointer;
   border: 1px solid #dcdfe6;
   border-radius: 4px;
+}
+
+.register-link {
+  color: #409eff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.logo-upload-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.avatar-uploader :deep(.el-upload) {
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: var(--el-transition-duration-fast);
+  background-color: #f5f7fa;
+}
+.avatar-uploader :deep(.el-upload:hover) {
+  border-color: var(--el-color-primary);
+}
+.upload-placeholder {
+  width: 120px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #8c939d;
+  background-color: #f5f7fa;
+}
+.avatar-uploader-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.upload-text {
+  font-size: 12px;
+}
+.avatar {
+  width: 120px;
+  height: 120px;
+  display: block;
+  border-radius: 8px;
 }
 </style>

@@ -21,3 +21,19 @@ export function deleteAttendance(id) {
     method: 'delete'
   })
 }
+
+export function getPendingClubs(params) {
+  return request({
+    url: '/admin/clubs/audit',
+    method: 'get',
+    params
+  })
+}
+
+export function auditClub(id, status) {
+  return request({
+    url: `/admin/clubs/${id}/audit`,
+    method: 'post',
+    data: { status }
+  })
+}

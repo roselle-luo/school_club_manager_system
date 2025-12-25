@@ -31,7 +31,8 @@
               <span>社团管理</span>
             </template>
             <el-menu-item index="/clubs/list">社团列表</el-menu-item>
-            <el-menu-item index="/clubs/audit">社团审核</el-menu-item>
+            <el-menu-item index="/clubs/audit">入团申请审核</el-menu-item>
+            <el-menu-item v-if="userStore.userInfo?.role === 'admin' || userStore.userInfo?.role?.code === 'admin'" index="/admin/club/audit">社团创建审批</el-menu-item>
           </el-sub-menu>
           <el-menu-item index="/admin/attendance">
             <el-icon>

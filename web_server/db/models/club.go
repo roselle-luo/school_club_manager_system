@@ -13,6 +13,7 @@ type Club struct {
 	Contact    string       `gorm:"size:64" json:"contact"`
 	CategoryID uint         `gorm:"index" json:"category_id"`
 	Category   ClubCategory `json:"category"`
+	Status     string       `gorm:"size:32;default:'pending';index" json:"status"` // pending, approved, rejected
 }
 
 type Membership struct {

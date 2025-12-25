@@ -15,6 +15,8 @@ func Register(r *gin.Engine) {
 	pub := v1.Group("/public")
 	pub.POST("/login", controllers.Login)
 	pub.POST("/register", controllers.Register)
+	pub.POST("/clubs/register", controllers.RegisterClub)
+	pub.POST("/upload/image", controllers.UploadImage)
 	pub.GET("/clubs", controllers.ListClubs)
 	pub.GET("/clubs/:clubId", controllers.GetClubDetailPublic)
 	pub.GET("/announcements", controllers.ListPublicAnnouncements)
@@ -60,6 +62,8 @@ func Register(r *gin.Engine) {
 	admin.DELETE("/clubs/:clubId", controllers.DissolveClub)
 	admin.POST("/memberships/:id/role", controllers.UpdateMembershipRole)
 	admin.GET("/attendance", controllers.ListManagedAttendance) // 保留原有路由，指向新控制器
+	admin.GET("/clubs/audit", controllers.ListPendingClubs)
+	admin.POST("/clubs/:id/audit", controllers.AuditClub)
 
 	member.POST("/activities/:activityId/signin", controllers.SignIn)
 	member.POST("/activities/:activityId/signout", controllers.SignOut)

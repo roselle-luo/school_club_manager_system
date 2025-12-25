@@ -55,6 +55,77 @@ func UpdateMembershipRole(c *gin.Context) {
 	c.JSON(http.StatusOK, response.Success(m))
 }
 
+// @Summary 获取社团审批列表
+// @Tags 管理员
+// @Produce json
+// @Param status query string false "状态(pending/approved/rejected)"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /admin/clubs/audit [get]
+func ListPendingClubs(c *gin.Context) {
+	status := c.Query("status")
+	db := store.DB().Preload("Category")
+
+	if status != "" {
+		db = db.Where("status = ?", status)
+	} else {
+		// 默认只显示待审核，或者显示所有？
+		// 为了满足用户"审批记录也要显示"，我们可以不传status时显示所有，或者前端默认传pending
+		// 这里改为：如果不传，默认显示所有非deleted的（GORM默认），按时间倒序
+	}
+
+	var clubs []models.Club
+	if err := db.Order("created_at desc").Find(&clubs).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "获取失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(clubs))
+}
+
+type AuditClubReq struct {
+	Status string `json:"status" binding:"required"` // approved or rejected
+}
+
+// @Summary 审核社团
+// @Tags 管理员
+// @Accept json
+// @Produce json
+// @Param id path int true "社团ID"
+// @Param payload body AuditClubReq true "审核结果"
+// @Security Bearer
+// @Success 200 {object} response.Body
+// @Router /admin/clubs/{id}/audit [post]
+func AuditClub(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	var req AuditClubReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, response.Error(400, "参数错误"))
+		return
+	}
+	if req.Status != "approved" && req.Status != "rejected" {
+		c.JSON(http.StatusBadRequest, response.Error(400, "非法状态"))
+		return
+	}
+
+	var club models.Club
+	if err := store.DB().First(&club, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, response.Error(404, "社团不存在"))
+		return
+	}
+
+	club.Status = req.Status
+	if err := store.DB().Save(&club).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, response.Error(500, "操作失败"))
+		return
+	}
+	c.JSON(http.StatusOK, response.Success(club))
+}
+
 // @Summary 获取管理考勤列表（管理员/负责人）
 // @Tags 管理员
 // @Produce json

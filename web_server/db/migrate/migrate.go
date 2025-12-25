@@ -26,8 +26,14 @@ func AutoMigrate(db *gorm.DB) error {
 }
 
 func Seed(db *gorm.DB) error {
-	db.Where(models.Role{Code: "admin"}).FirstOrCreate(&models.Role{Name: "管理员", Code: "admin"})
-	db.Where(models.Role{Code: "user"}).FirstOrCreate(&models.Role{Name: "用户", Code: "user"})
+	var adminRole models.Role
+	db.Where(models.Role{Code: "admin"}).FirstOrCreate(&adminRole, models.Role{Name: "管理员", Code: "admin"})
+	db.Where(models.Role{Code: "student"}).FirstOrCreate(&models.Role{Name: "学生", Code: "student"})
+
+	// Create admin user
+	adminHash, _ := password.Hash("123456")
+	adminUser := models.User{Account: "admin", Password: adminHash, Name: "管理员", RoleID: adminRole.ID}
+	db.Where(models.User{Account: adminUser.Account}).FirstOrCreate(&adminUser)
 
 	// categories
 	cats := []string{"文学类", "音乐类", "志愿服务", "社会实践", "电竞类", "摄影类", "创业类"}
@@ -40,7 +46,7 @@ func Seed(db *gorm.DB) error {
 
 	// demo users (leaders)
 	var userRole models.Role
-	db.Where(models.Role{Code: "user"}).First(&userRole)
+	db.Where(models.Role{Code: "student"}).First(&userRole)
 	makePhone := func(i int) string { return fmt.Sprintf("138%08d", 10000+i) }
 	hash, _ := password.Hash("123456")
 	leaders := make([]models.User, 0, 12)
@@ -72,8 +78,8 @@ func Seed(db *gorm.DB) error {
 	clubs := make([]models.Club, 0, len(seeds))
 	for i, s := range seeds {
 		catID := catIDs[s.CatIdx]
-		cl := models.Club{Name: s.Name, Logo: "", Intro: s.Intro, Contact: "", CategoryID: catID}
-		db.Where(models.Club{Name: cl.Name}).FirstOrCreate(&cl)
+		cl := models.Club{Name: s.Name, Logo: "", Intro: s.Intro, Contact: "", CategoryID: catID, Status: "approved"}
+		db.Where(models.Club{Name: cl.Name}).Assign(models.Club{Status: "approved"}).FirstOrCreate(&cl)
 		clubs = append(clubs, cl)
 		// membership: assign leader
 		if i < len(leaders) {

@@ -59,12 +59,10 @@ const fetchManagedClubs = async () => {
   if (!userStore.userInfo?.id) return
   try {
     const res = await getManagedClubs(userStore.userInfo.id)
-    if (res.code === 0) {
-        clubs.value = res.data
-        if (clubs.value.length > 0) {
-            currentClubId.value = clubs.value[0].id
-            getList()
-        }
+    clubs.value = res || []
+    if (clubs.value.length > 0) {
+        currentClubId.value = clubs.value[0].id
+        getList()
     }
   } catch (error) {
     console.error(error)
@@ -76,13 +74,11 @@ const getList = async () => {
   loading.value = true
   try {
     const res = await getPendingMemberships(currentClubId.value)
-    if (res.code === 0) {
-      list.value = res.data
-    } else {
-        list.value = []
-    }
+    // 后端返回结构为 { list: [], pagination: {} }
+    list.value = res?.list || []
   } catch (error) {
     console.error(error)
+    list.value = []
   } finally {
     loading.value = false
   }
@@ -99,18 +95,17 @@ const handleAudit = (row, status) => {
     cancelButtonText: '取消',
     type: status === 'approved' ? 'success' : 'warning'
   }).then(async () => {
-    let res
-    if (status === 'approved') {
-        res = await approveMembership(currentClubId.value, row.id)
-    } else {
-        res = await rejectMembership(currentClubId.value, row.id)
-    }
-    
-    if (res.code === 0) {
+    try {
+      if (status === 'approved') {
+          await approveMembership(currentClubId.value, row.id)
+      } else {
+          await rejectMembership(currentClubId.value, row.id)
+      }
+      
       ElMessage.success('操作成功')
       getList()
-    } else {
-      ElMessage.error(res.msg || '操作失败')
+    } catch (error) {
+      // Error handled by interceptor
     }
   }).catch(() => {})
 }

@@ -38,6 +38,7 @@
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
           <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+          <el-button type="success" icon="Download" :loading="exportLoading" @click="handleExport">导出Excel</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -112,12 +113,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { getAllAttendance, forceSignOut, deleteAttendance } from '@/api/admin'
 import { getManagedClubs, getClubs } from '@/api/club'
 import { useUserStore } from '@/stores/user'
-import { Search, Refresh } from '@element-plus/icons-vue'
+import { Search, Refresh, Download } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 
 const userStore = useUserStore()
 const loading = ref(false)
+const exportLoading = ref(false)
 const list = ref([])
 const total = ref(0)
 const clubList = ref([])
@@ -189,6 +191,61 @@ const resetQuery = () => {
   queryParams.student_no = ''
   queryParams.date = ''
   handleQuery()
+}
+
+const handleExport = async () => {
+  exportLoading.value = true
+  try {
+    const params = { ...queryParams, page: 1, size: 10000 }
+    const res = await getAllAttendance(params)
+    const data = res.list || []
+    
+    if (data.length === 0) {
+      ElMessage.warning('暂无数据可导出')
+      return
+    }
+
+    // CSV Header
+    let csvContent = '\uFEFF' // BOM for Excel
+    const headers = ['社团名称', '成员姓名', '学号', '学院', '考勤类型', '签到时间', '签退时间', '时长(小时)']
+    csvContent += headers.join(',') + '\n'
+
+    // CSV Body
+    data.forEach(row => {
+      const type = row.type === 'activity' ? '活动考勤' : '值班考勤'
+      const signin = row.signin_at ? formatDate(row.signin_at) : '-'
+      const signout = row.signout_at ? formatDate(row.signout_at) : '-'
+      const duration = row.duration_hours || 0
+      
+      const line = [
+        `"${row.club?.name || ''}"`,
+        `"${row.user?.name || ''}"`,
+        `"${row.user?.student_no || ''}"`,
+        `"${row.user?.college || ''}"`,
+        `"${type}"`,
+        `"${signin}"`,
+        `"${signout}"`,
+        `"${duration}"`
+      ]
+      csvContent += line.join(',') + '\n'
+    })
+
+    // Download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', `考勤记录_${dayjs().format('YYYYMMDDHHmmss')}.csv`)
+    link.style.visibility = 'hidden'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('Export failed:', error)
+    ElMessage.error('导出失败')
+  } finally {
+    exportLoading.value = false
+  }
 }
 
 const handleSizeChange = (val) => {
